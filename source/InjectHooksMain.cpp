@@ -6,104 +6,54 @@
 
 typedef int (__thiscall*  hCStreamingInfo_AddToList)
 (
-    signed __int16 * pThis, signed __int16 *a2
+    //signed __int16 * pThis, signed __int16 *a2
+    CStreamingInfo * pThis, CStreamingInfo * listStart
 );
 
 hCStreamingInfo_AddToList OLD_CStreamingInfo_AddToList = (hCStreamingInfo_AddToList)0x15674C0;
 
-int __fastcall CStreamingInfo__AddToList(signed __int16 * pThis, void* padding, signed __int16 *a2);
+//int __fastcall CStreamingInfo__AddToList(CStreamingInfo * pThis, void* padding, CStreamingInfo * listStart);
 
 void InjectHooksMain(void)
 {
+    InjectHook(0x15674C0, &CStreamingInfo::AddToList, PATCH_JUMP);
 
+    /*
     DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CStreamingInfo_AddToList, CStreamingInfo__AddToList);
+    //DetourAttach(&(PVOID&)OLD_CStreamingInfo_AddToList, CStreamingInfo__AddToList);
+    DetourAttach(&(PVOID&)OLD_CStreamingInfo_AddToList, CStreamingInfo::AddToList);
 
     //InjectHook(0x407480, &CStreamingInfo::AddToList, PATCH_JUMP);
     //InjectHook(0x4076A0, &CStreaming::IsVeryBusy, PATCH_JUMP);
     //InjectHook(0x4087E0, &CStreaming::RequestModel, PATCH_JUMP);
 
     DetourTransactionCommit();
-   
+   */
 }
 
 /*
+// Working Hook :)
+
 template < class T >
-unsigned __int64 GET_INDEX_FROM_BASE ( T pThis, T ArrayBase )
+int GET_INDEX_FROM_BASE ( T pThis, T ArrayBase )
 {
-    unsigned __int64 weirdOperation = ((1717986919i64 * (pThis - ArrayBase)) >> 32);
-    return (weirdOperation >> 3)  + (weirdOperation >> 31);
+    unsigned __int64 indexToCalculate = (1717986919i64 * (reinterpret_cast<signed int>(pThis) - reinterpret_cast<signed int>(ArrayBase))) >> 32;
+    return static_cast < int > ( (indexToCalculate >> 3)  + (indexToCalculate >> 31) );
 }
 
-int __fastcall CStreamingInfo__AddToList(signed __int16 * pThis, void* padding, signed __int16 *a2)
-{
-
-   
+int __fastcall CStreamingInfo__AddToList(CStreamingInfo * pThis, void* padding, CStreamingInfo * listStart)
+{   
     std::printf("CStreamingInfo::AddToList called\n");
 
-    int v2; // esi
-    signed int v3; // edx
-    unsigned int v4; // eax
-    int result; // eax
-
-    CStreamingInfo *listStart = (CStreamingInfo *)a2;
-
-    unsigned __int64 weirdOperation = ( (1717986919i64 * (listStart - CStreamingInfo::ms_pArrayBase)) >> 32 );
-
-    v2 = ((signed int)pThis - (*(DWORD*)0x9654B4) ) / 20;
-    v3 = (signed int)weirdOperation >> 3;
-    v4 = (unsigned int)weirdOperation >> 31;
-    *pThis = *a2;
-    pThis[1] = v4 + v3; // static_cast <short> (GET_INDEX_FROM_BASE < CStreamingInfo * >(listStart, CStreamingInfo::ms_pArrayBase));//v4 + v3;
-    *a2 = v2;
-    result = *pThis;
-    //*(WORD *)( (*(DWORD*)0x9654B4)  + 20 * result + 2) = v2;
-
-    CStreamingInfo::ms_pArrayBase[result].m_nPrevIndex = v2;
-
-    return result;
-   // return OLD_CStreamingInfo_AddToList( ppThis, a2);
-
+    pThis->m_nNextIndex = listStart->m_nNextIndex;
+    pThis->m_nPrevIndex = GET_INDEX_FROM_BASE < CStreamingInfo * > ( listStart, CStreamingInfo::ms_pArrayBase );
+    listStart->m_nNextIndex = GET_INDEX_FROM_BASE < CStreamingInfo * >(pThis, CStreamingInfo::ms_pArrayBase);
+    CStreamingInfo::ms_pArrayBase[pThis->m_nNextIndex].m_nPrevIndex = listStart->m_nNextIndex;
+    return pThis->m_nNextIndex;
 }
+
 */
-
-/*
-// working HOOK
-
-typedef int (__thiscall*  hCStreamingInfo_AddToList)
-(
-signed __int16 * pThis, signed __int16 *a2
-);
-
-hCStreamingInfo_AddToList OLD_CStreamingInfo_AddToList = (hCStreamingInfo_AddToList)0x15674C0;
-
-int __fastcall CStreamingInfo__AddToList(signed __int16 * pThis, void* padding, signed __int16 *a2);
-*/
-int __fastcall CStreamingInfo__AddToList(signed __int16 * pThis, void* padding, signed __int16 *a2)
-{
-
-std::printf("CStreamingInfo::AddToList called\n");
-
-int v2; // esi
-signed int v3; // edx
-unsigned int v4; // eax
-int result; // eax
-
-
-v2 = ((signed int)pThis - (*(DWORD*)0x9654B4) ) / 20;
-v3 = (signed int)((unsigned __int64)(1717986919i64 * ((signed int)a2 - (*(DWORD*)0x9654B4) )) >> 32) >> 3;
-v4 = (unsigned int)((unsigned __int64)(1717986919i64 * ((signed int)a2 - (*(DWORD*)0x9654B4) )) >> 32) >> 31;
-*pThis = *a2;
-pThis[1] = v4 + v3;
-*a2 = v2;
-result = *pThis;
-*(WORD *)( (*(DWORD*)0x9654B4)  + 20 * result + 2) = v2;
-return result;
-// return OLD_CStreamingInfo_AddToList( ppThis, a2);
-
-}
-//*/

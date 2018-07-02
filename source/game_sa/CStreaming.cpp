@@ -65,7 +65,7 @@ bool CStreaming::IsVeryBusy() {
 
 void CStreaming::RequestModel(int dwModelId, int streamingFlags) //CStreaming::RequestModel(uint32_t modelId, uint32_t streamingFlags)
 {
-    int flags; // ebx
+ /*   int flags; // ebx
     signed int dwModelId_1; // edi
     char loadState; // al
     unsigned __int8 v5; // al
@@ -105,8 +105,8 @@ void CStreaming::RequestModel(int dwModelId, int streamingFlags) //CStreaming::R
             pModelStreamingInfo->m_nNextIndex = -1;
             pModelStreamingInfo->m_nPrevIndex = -1;
 
-            CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(dwModelId);
-            size_t modelType = modelInfo->GetModelType();
+           // CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(dwModelId); 
+            size_t modelType = (*(int(**)(void))(*(DWORD *)*(&(*(DWORD*)0xA9B0C8) + dwModelId) + 16))(); //modelInfo->GetModelType();
             if ((dwModelId >= 20000
                 || modelType != 7 && modelType != 6)
                 && !(CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags & 6))
@@ -146,12 +146,20 @@ void CStreaming::RequestModel(int dwModelId, int streamingFlags) //CStreaming::R
         CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags = 0;
         pModelStreamingInfo->m_nFlags |= flags;
         CStreaming::ms_aInfoForModel[dwModelId_1].m_nLoadState = 2;// requested, loading
-    }
+    }*/
 }
 
 
 void CStreaming::RequestTxdModel(int TxdModelID, int Streamingflags) {
-    plugin::CallDynGlobal<int, int>(0x407100, TxdModelID, Streamingflags);
+    //char __cdecl CStreaming::requestTxd(int a1, char a2)
+    typedef int(__cdecl* hRequestTxdModel)
+    (
+            int a1, char a2
+    );
+    hRequestTxdModel _RequestTxdModel = (hRequestTxdModel)0x0407100;
+
+    //plugin::CallDynGlobal<int, int>(0x407100, TxdModelID, Streamingflags);
+    _RequestTxdModel ( TxdModelID, Streamingflags);
 }
 
 /*

@@ -16,14 +16,6 @@
 #include "CLoadedCarGroup.h"
 #include "CDirectory.h"
 
-enum eStreamStatus
-{
-  STREAM_STATUS_IDLE ,
-  STREAM_STATUS_READING ,
-  STREAM_STATUS_FINISHING_BIGFILE
-};
-
-
 struct tStreamingFileDesc
 {
   char m_szName[40];
@@ -34,16 +26,17 @@ struct tStreamingFileDesc
 
 struct tStreamingChannel
 {
-  int modelIds[16];
-  int field_40[16];
-  eStreamStatus m_nStreamStatus;
-  int field_84;
-  int field_88;
-  int field_8C;
-  int field_90;
-  int m_nCdStreamStatus;
+    int modelIds[16];
+    int modelStreamingBufferPositions[16];
+    eStreamingLoadState LoadStatus;
+    int iLoadingLevel;
+    int iBlockOffset;
+    int iBlockCount;
+    int OnBeginRead; // not sure if this one is correct, the rest are okay.
+    int m_nCdStreamStatus;
 };
 
+VALIDATE_SIZE(tStreamingChannel, 0x98);
 
 class  CStreaming {
 public:
@@ -96,6 +89,7 @@ public:
      static bool &m_bCopBikeLoaded;
      static bool &m_bDisableCopBikes;
      static CLinkList<CEntity*> &ms_rwObjectInstances;
+     static bool &m_bLoadingAllRequestedModels;
 
      static void *AddEntity(CEntity *a2);
     //! return StreamingFile Index in CStreaming::ms_files
@@ -189,7 +183,7 @@ public:
      static void RequestFile(int index, int offset, int size, int imgId, int streamingFlags);
     //! unused
      static void RequestFilesInChannel(int channelId);
-     static void RequestModel(int dwModelId, int Streamingflags);
+     static void RequestModel(int dwModelId, char Streamingflags);
      static void RequestModelStream(int streamNum);
     //! unused
      static void RequestPlayerSection(int modelIndex, char const *string, int streamingFlags);

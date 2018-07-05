@@ -47,6 +47,7 @@ bool &CStreaming::m_bCopBikeLoaded = *reinterpret_cast<bool *>(0x9654BE);
 bool &CStreaming::m_bDisableCopBikes = *reinterpret_cast<bool *>(0x9654BF);
 CLinkList<CEntity*> &CStreaming::ms_rwObjectInstances = *reinterpret_cast<CLinkList<CEntity*> *>(0x9654F0);
 RwStream &gRwStream = *reinterpret_cast<RwStream *>(0x8E48AC);
+bool &CStreaming::m_bLoadingAllRequestedModels = *reinterpret_cast<bool *>(0x965538);
 
 
 //int __cdecl getTXDEntryParentIndex(int index);
@@ -63,164 +64,94 @@ bool CStreaming::IsVeryBusy() {
     return CRenderer::m_loadingPriority || CStreaming::ms_numModelsRequested > 5;
 }
 
-void CStreaming::RequestModel(int dwModelId, int streamingFlags) //CStreaming::RequestModel(uint32_t modelId, uint32_t streamingFlags)
+void CStreaming::RequestModel(int modelId, char streamingFlags) //CStreaming::RequestModel(uint32_t modelId, uint32_t streamingFlags)
 {
- /*   int flags; // ebx
-    signed int dwModelId_1; // edi
-    char loadState; // al
-    unsigned __int8 v5; // al
-    CStreamingInfo *pModelStreamingInfo; // esi
-    char loadState2; // al
-    CBaseModelInfo *pBaseModelInfo; // ebp
-    int animFileIndex; // eax
-    int txdEntryParentIndex; // eax
-
-    std::printf("CStreaming::RequestModel called dwModelId: %d\n", dwModelId);
-
-    flags = streamingFlags;
-    dwModelId_1 = dwModelId;
-    loadState = CStreaming::ms_aInfoForModel[dwModelId].m_nLoadState;
-    if (loadState == 2)                         // if loading
+    int flags = streamingFlags;
+    CStreamingInfo & modelStreamingInfo = CStreaming::ms_aInfoForModel[modelId];
+    char loadState = modelStreamingInfo.m_nLoadState;
+    if (loadState == LOADSTATE_Requested)
     {
-        if (streamingFlags & 16 && !(CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags & 16))
+        if ((streamingFlags & PRIORITY_REQUEST) && !(modelStreamingInfo.m_nFlags & PRIORITY_REQUEST))
         {
-            v5 = CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags | 16;
             ++CStreaming::ms_numPriorityRequests;
-            CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags = v5;
+            modelStreamingInfo.m_nFlags |= PRIORITY_REQUEST;
         }
     }
     else if (loadState)
     {
-        flags = streamingFlags & 0xFFFFFFEF;
+        flags = streamingFlags & 0xEF;
     }
-    pModelStreamingInfo = &CStreaming::ms_aInfoForModel[dwModelId_1];
-    CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags |= flags;
-    loadState2 = CStreaming::ms_aInfoForModel[dwModelId_1].m_nLoadState;
-    if (loadState2 == 1)                        // if loaded
-    {
-        if (pModelStreamingInfo->m_nNextIndex != -1)   // CStreamingInfo::InList
-        {
-            CStreamingInfo::ms_pArrayBase[pModelStreamingInfo->m_nNextIndex].m_nPrevIndex = pModelStreamingInfo->m_nPrevIndex;
-            CStreamingInfo::ms_pArrayBase[pModelStreamingInfo->m_nPrevIndex].m_nNextIndex = pModelStreamingInfo->m_nNextIndex;
-            pModelStreamingInfo->m_nNextIndex = -1;
-            pModelStreamingInfo->m_nPrevIndex = -1;
 
-           // CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(dwModelId); 
-            size_t modelType = (*(int(**)(void))(*(DWORD *)*(&(*(DWORD*)0xA9B0C8) + dwModelId) + 16))(); //modelInfo->GetModelType();
-            if ((dwModelId >= 20000
-                || modelType != 7 && modelType != 6)
-                && !(CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags & 6))
+    modelStreamingInfo.m_nFlags |= flags;
+    if (loadState == LOADSTATE_LOADED)
+    {
+        if (modelStreamingInfo.InList())
+        {
+            modelStreamingInfo.RemoveFromList();
+            if ((modelId < 20000))
             {
-                pModelStreamingInfo->AddToList( CStreaming::ms_startLoadedList);
+                CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(modelId);
+                size_t modelType = modelInfo->GetModelType();
+                if (modelType == MODEL_INFO_TYPE_PED && modelType == MODEL_INFO_TYPE_VEHICLE)
+                {
+                    return;
+                }
+            }
+
+            if (!(modelStreamingInfo.m_nFlags & (GAME_REQUIRED || MISSION_REQUIRED)))
+            {
+                modelStreamingInfo.AddToList(CStreaming::ms_startLoadedList);
             }
         }
     }
-    else if (loadState2 != 3 && loadState2 != 2 && loadState2 != 4)// if not loaded
+    else if (loadState != LOADSTATE_Channeled && loadState != LOADSTATE_Requested && loadState != LOADSTATE_Finishing)
     {
-        if (!loadState2)                          // if not loaded
+        if (loadState == LOADSTATE_NOT_LOADED)
         {
-            if (dwModelId >= 20000)
+            if (modelId >= 20000)
             {
-                if (dwModelId < 25000)                // txd
+                if (modelId < 25000)                // txd
                 {
-                    txdEntryParentIndex = getTXDEntryParentIndex(dwModelId - 20000);
+                    int txdEntryParentIndex = getTXDEntryParentIndex(modelId - 20000);
                     if (txdEntryParentIndex != -1)
-                        CStreaming::RequestTxdModel(txdEntryParentIndex, flags);
+                        RequestTxdModel(txdEntryParentIndex, flags);
                 }
             }
             else
             {
-                pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[dwModelId];
-                
-               
-                CStreaming::RequestTxdModel(pBaseModelInfo->m_nTxdIndex, flags);
-                animFileIndex = pBaseModelInfo->GetAnimFileIndex();
+                CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(modelId);
+                RequestTxdModel(modelInfo->m_nTxdIndex, flags);
+                int animFileIndex = modelInfo->GetAnimFileIndex();
                 if (animFileIndex != -1)
-                    CStreaming::RequestModel(animFileIndex + 25575, 8);
+                    RequestModel(animFileIndex + 25575, KEEP_IN_MEMORY);
             }
-            pModelStreamingInfo->AddToList( CStreaming::ms_pStartRequestedList);
+            modelStreamingInfo.AddToList(CStreaming::ms_pStartRequestedList);
             ++CStreaming::ms_numModelsRequested;
-            if (flags & 0x10)
+            if (flags & PRIORITY_REQUEST)
                 ++CStreaming::ms_numPriorityRequests;
         }
-        CStreaming::ms_aInfoForModel[dwModelId_1].m_nFlags = 0;
-        pModelStreamingInfo->m_nFlags |= flags;
-        CStreaming::ms_aInfoForModel[dwModelId_1].m_nLoadState = 2;// requested, loading
-    }*/
+        modelStreamingInfo.m_nFlags = flags;
+        modelStreamingInfo.m_nLoadState = LOADSTATE_Requested;// requested, loading
+    }
 }
 
 
-void CStreaming::RequestTxdModel(int TxdModelID, int Streamingflags) {
-    //char __cdecl CStreaming::requestTxd(int a1, char a2)
-    typedef int(__cdecl* hRequestTxdModel)
-    (
-            int a1, char a2
-    );
-    hRequestTxdModel _RequestTxdModel = (hRequestTxdModel)0x0407100;
-
-    //plugin::CallDynGlobal<int, int>(0x407100, TxdModelID, Streamingflags);
-    _RequestTxdModel ( TxdModelID, Streamingflags);
+void CStreaming::RequestTxdModel(int txdModelID, int streamingFlags) {
+    RequestModel(txdModelID + 20000, streamingFlags);
 }
 
-/*
+
+bool CStreaming::FlushChannels()
 {
-    if (ms_aInfoForModel[modelId].m_loadStatus == 2)
-    {
-        if (flags & 0x10 && !(ms_aInfoForModel[modelId].m_flags & 0x10))
-        {
-            ms_aInfoForModel[modelId].m_flags |= 0x10;
-            ms_numPriorityRequests++;
-        }
-    }
-    else if (ms_aInfoForModel[modelId].m_loadStatus != 0)
-    {
-        ms_aInfoForModel[modelId].m_flags |= flags & 0xEF;
-        if (ms_aInfoForModel[modelId].m_loadStatus == 1)
-        {
-            if (ms_aInfoForModel[modelId].InList())
-            {
-                ms_aInfoForModel[modelId].RemoveFromList();
-                CBaseModelInfo* modelInfo = CModelInfo::GetModelInfo(modelId);
-                size_t modelType = modelInfo->GetModelType();
-                if (modelId > 19999 ||
-                    (modelType != 7 && modelType != 6))
-                {
-                    if (!(ms_aInfoForModel[modelId].m_flags & (2 | 4)))
-                    {
-                        ms_aInfoForModel[modelId].AddToList(ms_pStartLoadedList);
-                    }
-                }
-            }
-        }
-        else if (ms_aInfoForModel[modelId].m_loadStatus != 3 && ms_aInfoForModel[modelId].m_loadStatus != 4)
-        {
-            ms_aInfoForModel[modelId].m_flags = flags;
-            ms_aInfoForModel[modelId].m_loadStatus = 2;
-        }
-    }
-    else
-    {
-        ms_aInfoForModel[modelId].m_flags |= flags;
-        if (modelId > 20000 + 4999)
-        {
-            if (modelId <= 19999)
-            {
-                v7 = (*(int(**)(void))(*(_DWORD *)CModelInfo::ms_modelInfoPtrs[temp] + 60))();
-                if (v7 != -1)
-                    CStreaming::RequestModel(v7 + 25575, 8);
-            }
-            ms_aInfoForModel[modelId].AddToList(ms_pStartRequestedList);
-            ms_numModelsRequested++;
-            if (flags & 0x10)
-            {
-                ms_numPriorityRequests++;
-            }
-            ms_aInfoForModel[modelId].m_flags = flags;
-            ms_aInfoForModel[modelId].m_loadStatus = 2;
-        }
-        else
-        {
-            ms_aInfoForModel[modelId].m_loadStatus = 1;
-        }
-    }
-}*/
+    return plugin::CallAndReturnDynGlobal<bool>(0x40E460);
+}
+
+void CStreaming::RequestModelStream(int streamNum)
+{
+    plugin::CallDynGlobal<int>(0x40CBA0, streamNum);
+}
+
+bool CStreaming::ProcessLoadingChannel(int channelIndex)
+{
+    return plugin::CallAndReturnDynGlobal<bool, int>(0x40E170, channelIndex);
+}

@@ -102,7 +102,7 @@ public:
      static void ClearFlagForAll(unsigned int eStreamingFlag);
      static void ClearSlots(int NumOfSlots);
     //! ChanndelIndex is unused
-     static char ConvertBufferToObject(char *pFileContect, int index, int ChannelIndex);
+     static char ConvertBufferToObject(char *FileName, int ChannelIndex);
      static void DeleteAllRwObjects();
      static bool DeleteLeastUsedEntityRwObject(bool bNotOnScreen, unsigned int StreamingFlags);
      static void DeleteRwObjectsAfterDeath(CVector const *PlayerPosn);
@@ -176,6 +176,7 @@ public:
      static bool RemoveLoadedVehicle();
      static bool RemoveLoadedZoneModel();
      static void RemoveModel(int Modelindex);
+     static void RemoveTxdModel(int Modelindex);
     //! does nothing (NOP)
      static unsigned int RemoveUnusedModelsInLoadedList();
      static void RenderEntity(CLink<CEntity*> *streamingLink);

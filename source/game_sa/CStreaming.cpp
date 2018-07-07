@@ -50,21 +50,104 @@ RwStream &gRwStream = *reinterpret_cast<RwStream *>(0x8E48AC);
 bool &CStreaming::m_bLoadingAllRequestedModels = *reinterpret_cast<bool *>(0x965538);
 
 
-//int __cdecl getTXDEntryParentIndex(int index);
-typedef int(__cdecl* hgetTXDEntryParentIndex)
-(
-    int index
-);
-hgetTXDEntryParentIndex getTXDEntryParentIndex = (hgetTXDEntryParentIndex)0x00408370;
-
-
+char CStreaming::ConvertBufferToObject(char *FileName, int ChannelIndex)
+{
+    return plugin::CallAndReturnDynGlobal<char, char*, int>(0x40C6B0, FileName , ChannelIndex);
+}
 
 bool CStreaming::IsVeryBusy() {
     std::printf("Streaming::IsVeryBusy called\n");
     return CRenderer::m_loadingPriority || CStreaming::ms_numModelsRequested > 5;
 }
 
-void CStreaming::RequestModel(int modelId, char streamingFlags) //CStreaming::RequestModel(uint32_t modelId, uint32_t streamingFlags)
+//////////////////////////////////////////////////////////////////////////////////////////
+// CStreaming::LoadAllRequestedModels
+//
+// There are only 2 streaming channels within CStreaming::ms_channel. In this function, 
+// if your current channelIndex is zero then "1 - channelIndex" will give you the other 
+// streaming channel within CStreaming::ms_channel which is 1 (second streaming channel). 
+//////////////////////////////////////////////////////////////////////////////////////////
+void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
+{
+    if (!CStreaming::m_bLoadingAllRequestedModels)
+    {
+        CStreaming::m_bLoadingAllRequestedModels = true;
+        CStreaming::FlushChannels();
+        int numModelsToLoad = 10;
+        if (2 * CStreaming::ms_numModelsRequested >= 10)
+            numModelsToLoad = 2 * CStreaming::ms_numModelsRequested;
+
+        int channelIndex = 0;
+        while (1)
+        {
+            tStreamingChannel& firstStreamingChannel = CStreaming::ms_channel[0];
+            tStreamingChannel& secondStreamingChannel = CStreaming::ms_channel[1];
+
+            short endRequestPreviousIndex = CStreaming::ms_pEndRequestedList->m_nPrevIndex;
+            CStreamingInfo * pStreamingInfo = endRequestPreviousIndex == -1 ? 0 : &CStreamingInfo::ms_pArrayBase[endRequestPreviousIndex];
+
+            if (pStreamingInfo == CStreaming::ms_pStartRequestedList
+                && !firstStreamingChannel.LoadStatus
+                && !secondStreamingChannel.LoadStatus
+                || numModelsToLoad <= 0)
+            {
+                break;
+            }
+
+            if (CStreaming::ms_bLoadingBigModel)
+            {
+                channelIndex = 0;
+            }
+
+            tStreamingChannel& streamingChannel = CStreaming::ms_channel[channelIndex];
+            if (streamingChannel.LoadStatus)
+            {
+                CdStreamSync(channelIndex);
+                streamingChannel.iLoadingLevel = 100;
+            }
+
+            if (streamingChannel.LoadStatus == LOADSTATE_LOADED)
+            {
+                CStreaming::ProcessLoadingChannel(channelIndex);
+                if (streamingChannel.LoadStatus == LOADSTATE_Requested)
+                {
+                    CStreaming::ProcessLoadingChannel(channelIndex);
+                }
+            }
+
+            if (bOnlyPriorityRequests && !CStreaming::ms_numPriorityRequests)
+            {
+                break;
+            }
+
+            if (!CStreaming::ms_bLoadingBigModel)
+            {
+                tStreamingChannel& otherStreamingChannel = CStreaming::ms_channel[1 - channelIndex];
+                if (!otherStreamingChannel.LoadStatus)
+                {
+                    CStreaming::RequestModelStream(1 - channelIndex);
+                }
+
+                if (!streamingChannel.LoadStatus && !CStreaming::ms_bLoadingBigModel)
+                {
+                    CStreaming::RequestModelStream(channelIndex);
+                }
+            }
+            if (!firstStreamingChannel.LoadStatus && !secondStreamingChannel.LoadStatus)
+            {
+                break;
+            }
+
+            channelIndex = 1 - channelIndex;
+            --numModelsToLoad;
+        }
+        CStreaming::FlushChannels();
+        CStreaming::m_bLoadingAllRequestedModels = false;
+    }
+
+}
+
+void CStreaming::RequestModel(int modelId, char streamingFlags)
 {
     int flags = streamingFlags;
     CStreamingInfo & modelStreamingInfo = CStreaming::ms_aInfoForModel[modelId];
@@ -112,7 +195,7 @@ void CStreaming::RequestModel(int modelId, char streamingFlags) //CStreaming::Re
             {
                 if (modelId < 25000)                // txd
                 {
-                    int txdEntryParentIndex = getTXDEntryParentIndex(modelId - 20000);
+                    int txdEntryParentIndex = CTxdStore::GetParentTxdSlot(modelId - 20000);
                     if (txdEntryParentIndex != -1)
                         RequestTxdModel(txdEntryParentIndex, flags);
                 }
@@ -135,12 +218,14 @@ void CStreaming::RequestModel(int modelId, char streamingFlags) //CStreaming::Re
     }
 }
 
-
 void CStreaming::RequestTxdModel(int txdModelID, int streamingFlags) {
     RequestModel(txdModelID + 20000, streamingFlags);
 }
 
-
+bool CStreaming::FinishLoadingLargeFile(char *FileName, int modelIndex) 
+{
+    return plugin::CallAndReturnDynGlobal<bool, char *, int>(0x408CB0, FileName, modelIndex);
+}
 bool CStreaming::FlushChannels()
 {
     return plugin::CallAndReturnDynGlobal<bool>(0x40E460);
@@ -154,4 +239,25 @@ void CStreaming::RequestModelStream(int streamNum)
 bool CStreaming::ProcessLoadingChannel(int channelIndex)
 {
     return plugin::CallAndReturnDynGlobal<bool, int>(0x40E170, channelIndex);
+}
+
+void CStreaming::RemoveModel(int Modelindex) {
+    plugin::CallDynGlobal<int>(0x4089A0, Modelindex);
+}
+
+void CStreaming::RemoveTxdModel(int Modelindex)
+{
+    RemoveModel(Modelindex + 20000);
+}
+
+void CStreaming::MakeSpaceFor(int memoryToCleanInBytes) {
+    plugin::CallDynGlobal<int>(0x4037EB, memoryToCleanInBytes);
+}
+
+bool CStreaming::RemoveLoadedVehicle() {
+    return plugin::CallAndReturnDynGlobal<bool>(0x40C020);
+}
+
+void CStreaming::RetryLoadFile(int streamNum) {
+    plugin::CallDynGlobal<int>(0x4076C0, streamNum);
 }

@@ -15,6 +15,7 @@ signed int *CStreaming::ms_aDefaultCabDriverModel = reinterpret_cast<signed int 
 CDirectory *&CStreaming::ms_pExtraObjectsDir = *reinterpret_cast<CDirectory **>(0x8E48D0);
 tStreamingFileDesc *CStreaming::ms_files = reinterpret_cast<tStreamingFileDesc *>(0x8E48D8);
 bool &CStreaming::ms_bLoadingBigModel = *reinterpret_cast<bool *>(0x8E4A58);
+// There are only two channels within CStreaming::ms_channel
 tStreamingChannel *CStreaming::ms_channel = reinterpret_cast<tStreamingChannel *>(0x8E4A60);
 signed int &CStreaming::ms_channelError = *reinterpret_cast<signed int *>(0x8E4B90);
 bool &CStreaming::m_bHarvesterModelsRequested = *reinterpret_cast<bool *>(0x8E4B9C);
@@ -50,14 +51,26 @@ RwStream &gRwStream = *reinterpret_cast<RwStream *>(0x8E48AC);
 bool &CStreaming::m_bLoadingAllRequestedModels = *reinterpret_cast<bool *>(0x965538);
 
 
-char CStreaming::ConvertBufferToObject(char *FileName, int ChannelIndex)
+bool CStreaming::AreAnimsUsedByRequestedModels(int AnimFileIndex) {
+    return plugin::CallAndReturnDynGlobal<bool, int>(0x407AD0, AnimFileIndex);
+}
+
+bool CStreaming::AreTexturesUsedByRequestedModels(int txdIndex) {
+    return plugin::CallAndReturnDynGlobal<bool, int>(0x409A90, txdIndex);
+}
+
+int CStreaming::GetNextFileOnCd(int pos, bool bNotPriority) {
+    return plugin::CallAndReturnDynGlobal<int, int, bool>(0x408E20, pos, bNotPriority);
+}
+
+char CStreaming::ConvertBufferToObject(char * pFileBuffer, int ChannelIndex)
 {
-    return plugin::CallAndReturnDynGlobal<char, char*, int>(0x40C6B0, FileName , ChannelIndex);
+    return plugin::CallAndReturnDynGlobal<char, char*, int>(0x40C6B0, pFileBuffer, ChannelIndex);
 }
 
 bool CStreaming::IsVeryBusy() {
     std::printf("Streaming::IsVeryBusy called\n");
-    return CRenderer::m_loadingPriority || CStreaming::ms_numModelsRequested > 5;
+    return CRenderer::m_loadingPriority || ms_numModelsRequested > 5;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -69,24 +82,24 @@ bool CStreaming::IsVeryBusy() {
 //////////////////////////////////////////////////////////////////////////////////////////
 void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
 {
-    if (!CStreaming::m_bLoadingAllRequestedModels)
+    if (!m_bLoadingAllRequestedModels)
     {
-        CStreaming::m_bLoadingAllRequestedModels = true;
-        CStreaming::FlushChannels();
+        m_bLoadingAllRequestedModels = true;
+        FlushChannels();
         int numModelsToLoad = 10;
-        if (2 * CStreaming::ms_numModelsRequested >= 10)
-            numModelsToLoad = 2 * CStreaming::ms_numModelsRequested;
+        if (2 * ms_numModelsRequested >= 10)
+            numModelsToLoad = 2 * ms_numModelsRequested;
 
         int channelIndex = 0;
         while (1)
         {
-            tStreamingChannel& firstStreamingChannel = CStreaming::ms_channel[0];
-            tStreamingChannel& secondStreamingChannel = CStreaming::ms_channel[1];
+            tStreamingChannel& firstStreamingChannel = ms_channel[0];
+            tStreamingChannel& secondStreamingChannel = ms_channel[1];
 
-            short endRequestPreviousIndex = CStreaming::ms_pEndRequestedList->m_nPrevIndex;
+            short endRequestPreviousIndex = ms_pEndRequestedList->m_nPrevIndex;
             CStreamingInfo * pStreamingInfo = endRequestPreviousIndex == -1 ? 0 : &CStreamingInfo::ms_pArrayBase[endRequestPreviousIndex];
 
-            if (pStreamingInfo == CStreaming::ms_pStartRequestedList
+            if (pStreamingInfo == ms_pStartRequestedList
                 && !firstStreamingChannel.LoadStatus
                 && !secondStreamingChannel.LoadStatus
                 || numModelsToLoad <= 0)
@@ -94,12 +107,12 @@ void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
                 break;
             }
 
-            if (CStreaming::ms_bLoadingBigModel)
+            if (ms_bLoadingBigModel)
             {
                 channelIndex = 0;
             }
 
-            tStreamingChannel& streamingChannel = CStreaming::ms_channel[channelIndex];
+            tStreamingChannel& streamingChannel = ms_channel[channelIndex];
             if (streamingChannel.LoadStatus)
             {
                 CdStreamSync(channelIndex);
@@ -108,29 +121,29 @@ void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
 
             if (streamingChannel.LoadStatus == LOADSTATE_LOADED)
             {
-                CStreaming::ProcessLoadingChannel(channelIndex);
+                ProcessLoadingChannel(channelIndex);
                 if (streamingChannel.LoadStatus == LOADSTATE_Requested)
                 {
-                    CStreaming::ProcessLoadingChannel(channelIndex);
+                    ProcessLoadingChannel(channelIndex);
                 }
             }
 
-            if (bOnlyPriorityRequests && !CStreaming::ms_numPriorityRequests)
+            if (bOnlyPriorityRequests && !ms_numPriorityRequests)
             {
                 break;
             }
 
-            if (!CStreaming::ms_bLoadingBigModel)
+            if (!ms_bLoadingBigModel)
             {
-                tStreamingChannel& otherStreamingChannel = CStreaming::ms_channel[1 - channelIndex];
+                tStreamingChannel& otherStreamingChannel = ms_channel[1 - channelIndex];
                 if (!otherStreamingChannel.LoadStatus)
                 {
-                    CStreaming::RequestModelStream(1 - channelIndex);
+                    RequestModelStream(1 - channelIndex);
                 }
 
-                if (!streamingChannel.LoadStatus && !CStreaming::ms_bLoadingBigModel)
+                if (!streamingChannel.LoadStatus && !ms_bLoadingBigModel)
                 {
-                    CStreaming::RequestModelStream(channelIndex);
+                    RequestModelStream(channelIndex);
                 }
             }
             if (!firstStreamingChannel.LoadStatus && !secondStreamingChannel.LoadStatus)
@@ -141,8 +154,8 @@ void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
             channelIndex = 1 - channelIndex;
             --numModelsToLoad;
         }
-        CStreaming::FlushChannels();
-        CStreaming::m_bLoadingAllRequestedModels = false;
+        FlushChannels();
+        m_bLoadingAllRequestedModels = false;
     }
 
 }
@@ -150,13 +163,13 @@ void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests)
 void CStreaming::RequestModel(int modelId, char streamingFlags)
 {
     int flags = streamingFlags;
-    CStreamingInfo & modelStreamingInfo = CStreaming::ms_aInfoForModel[modelId];
+    CStreamingInfo & modelStreamingInfo = ms_aInfoForModel[modelId];
     char loadState = modelStreamingInfo.m_nLoadState;
     if (loadState == LOADSTATE_Requested)
     {
         if ((streamingFlags & PRIORITY_REQUEST) && !(modelStreamingInfo.m_nFlags & PRIORITY_REQUEST))
         {
-            ++CStreaming::ms_numPriorityRequests;
+            ++ms_numPriorityRequests;
             modelStreamingInfo.m_nFlags |= PRIORITY_REQUEST;
         }
     }
@@ -183,7 +196,7 @@ void CStreaming::RequestModel(int modelId, char streamingFlags)
 
             if (!(modelStreamingInfo.m_nFlags & (GAME_REQUIRED || MISSION_REQUIRED)))
             {
-                modelStreamingInfo.AddToList(CStreaming::ms_startLoadedList);
+                modelStreamingInfo.AddToList(ms_startLoadedList);
             }
         }
     }
@@ -208,10 +221,10 @@ void CStreaming::RequestModel(int modelId, char streamingFlags)
                 if (animFileIndex != -1)
                     RequestModel(animFileIndex + 25575, KEEP_IN_MEMORY);
             }
-            modelStreamingInfo.AddToList(CStreaming::ms_pStartRequestedList);
-            ++CStreaming::ms_numModelsRequested;
+            modelStreamingInfo.AddToList(ms_pStartRequestedList);
+            ++ms_numModelsRequested;
             if (flags & PRIORITY_REQUEST)
-                ++CStreaming::ms_numPriorityRequests;
+                ++ms_numPriorityRequests;
         }
         modelStreamingInfo.m_nFlags = flags;
         modelStreamingInfo.m_nLoadState = LOADSTATE_Requested;// requested, loading
@@ -222,13 +235,33 @@ void CStreaming::RequestTxdModel(int txdModelID, int streamingFlags) {
     RequestModel(txdModelID + 20000, streamingFlags);
 }
 
-bool CStreaming::FinishLoadingLargeFile(char *FileName, int modelIndex) 
+bool CStreaming::FinishLoadingLargeFile(char * pFileBuffer, int modelIndex) 
 {
-    return plugin::CallAndReturnDynGlobal<bool, char *, int>(0x408CB0, FileName, modelIndex);
+    return plugin::CallAndReturnDynGlobal<bool, char *, int>(0x408CB0, pFileBuffer, modelIndex);
 }
+
 bool CStreaming::FlushChannels()
 {
-    return plugin::CallAndReturnDynGlobal<bool>(0x40E460);
+    char channelsFlushed = false; 
+    if (ms_channel[1].LoadStatus == LOADSTATE_Requested)
+        channelsFlushed = ProcessLoadingChannel(1);
+    if (ms_channel[0].LoadStatus == LOADSTATE_LOADED)
+    {
+        CdStreamSync(0);
+        ms_channel[0].iLoadingLevel = 100;
+        channelsFlushed = ProcessLoadingChannel(0);
+    }
+    if (ms_channel[0].LoadStatus == LOADSTATE_Requested)
+        channelsFlushed = ProcessLoadingChannel(0);
+    if (ms_channel[1].LoadStatus == LOADSTATE_LOADED)
+    {
+        CdStreamSync(1u);
+        ms_channel[1].iLoadingLevel = 100;
+        channelsFlushed = ProcessLoadingChannel(1);
+    }
+    if (ms_channel[1].LoadStatus == LOADSTATE_Requested)
+        channelsFlushed = ProcessLoadingChannel(1);
+    return channelsFlushed;
 }
 
 void CStreaming::RequestModelStream(int streamNum)
@@ -238,7 +271,98 @@ void CStreaming::RequestModelStream(int streamNum)
 
 bool CStreaming::ProcessLoadingChannel(int channelIndex)
 {
-    return plugin::CallAndReturnDynGlobal<bool, int>(0x40E170, channelIndex);
+    tStreamingChannel& streamingChannel = ms_channel[channelIndex];
+    int streamStatus = CdStreamGetStatus(channelIndex);
+    if (streamStatus)
+    {
+        if (streamStatus == 255)
+            return false;
+        if (streamStatus == 250)
+            return false;
+        streamingChannel.m_nCdStreamStatus = streamStatus;
+        streamingChannel.LoadStatus = LOADSTATE_Channeled;
+
+        bool isChannelErrorFree = ms_channelError == -1;
+        if (!isChannelErrorFree)
+            return false;
+        ms_channelError = channelIndex;
+        RetryLoadFile(channelIndex);
+        return true;
+    }
+
+    bool isRequested = streamingChannel.LoadStatus == LOADSTATE_Requested;
+    streamingChannel.LoadStatus = LOADSTATE_NOT_LOADED; // 0;
+    if (!isRequested)
+    {
+        int numberOfModelIds = sizeof(tStreamingChannel::modelIds) / sizeof(tStreamingChannel::modelIds[0]);
+        for (int modelIndex = 0; modelIndex < numberOfModelIds; modelIndex++)
+        {
+            int modelId = streamingChannel.modelIds[modelIndex];
+            if (modelId != -1)
+            {
+                CBaseModelInfo* baseModelInfo = CModelInfo::GetModelInfo(modelId);
+                CStreamingInfo& streamingInfo = ms_aInfoForModel[modelId];
+                int nCdSize = streamingInfo.m_nCdSize;
+
+                if (modelId >= 20000
+                    || baseModelInfo->GetModelType() != 6
+                    || ms_vehiclesLoaded.CountMembers() < desiredNumVehiclesLoaded
+                    || RemoveLoadedVehicle()
+                    || ms_aInfoForModel[modelId].m_nFlags & 6)
+                {
+                    if (modelId < 25255 || modelId >= 25511)
+                        MakeSpaceFor(nCdSize << 11); // MakeSpaceFor(nCdSize * (2^11))
+
+                    int bufferOffset = streamingChannel.modelStreamingBufferOffsets[modelIndex];
+                    char * pFileBuffer = &(&ms_pStreamingBuffer)[channelIndex][2048 * bufferOffset];
+
+                    ConvertBufferToObject(pFileBuffer, modelId);
+
+                    if (streamingInfo.m_nLoadState != LOADSTATE_Finishing
+                        || (streamingChannel.LoadStatus = LOADSTATE_Requested,
+                            streamingChannel.modelStreamingBufferOffsets[modelIndex] = bufferOffset,
+                            streamingChannel.modelIds[modelIndex] = modelId,
+                            modelIndex))
+                    {
+                        streamingChannel.modelIds[modelIndex] = -1;
+                    }
+                }
+                else
+                {
+                    int modelTxdIndex = baseModelInfo->m_nTxdIndex;
+                    RemoveModel(modelId);
+
+                    if (streamingInfo.m_nFlags & 6)
+                    {
+                        RequestModel(modelId, streamingInfo.m_nFlags);
+                    }
+                    else if (!CTxdStore::GetNumRefs(modelTxdIndex))
+                    {
+                        RemoveTxdModel(modelTxdIndex);
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        int bufferOffset = streamingChannel.modelStreamingBufferOffsets[0];
+        char * pFileContents = &(&ms_pStreamingBuffer)[channelIndex][2048 * bufferOffset];
+
+        FinishLoadingLargeFile(pFileContents, streamingChannel.modelIds[0]);
+
+        streamingChannel.modelIds[0] = -1;
+    }
+
+    if (ms_bLoadingBigModel)
+    {
+        if (streamingChannel.LoadStatus != LOADSTATE_Requested)
+        {
+            ms_bLoadingBigModel = false;
+            memset(&ms_channel[1], 0xFFu, 64u);
+        }
+    }
+    return true;
 }
 
 void CStreaming::RemoveModel(int Modelindex) {

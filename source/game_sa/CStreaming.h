@@ -91,6 +91,8 @@ public:
      static bool &m_bDisableCopBikes;
      static CLinkList<CEntity*> &ms_rwObjectInstances;
      static bool &m_bLoadingAllRequestedModels;
+     static bool &m_bModelStreamNotLoaded;
+
 
      static void *AddEntity(CEntity *a2);
     //! return StreamingFile Index in CStreaming::ms_files

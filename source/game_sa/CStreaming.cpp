@@ -50,6 +50,24 @@ CLinkList<CEntity*> &CStreaming::ms_rwObjectInstances = *reinterpret_cast<CLinkL
 RwStream &gRwStream = *reinterpret_cast<RwStream *>(0x8E48AC);
 bool &CStreaming::m_bLoadingAllRequestedModels = *reinterpret_cast<bool *>(0x965538);
 bool &CStreaming::m_bModelStreamNotLoaded = *reinterpret_cast<bool *>(0x9654C4);
+unsigned int &CStreaming::ms_numberOfBytesRead = *reinterpret_cast<unsigned int *>(0x965534);
+
+void CStreaming::InjectHooks()
+{
+    CStreamingInfo::InjectHooks();
+
+    InjectHook(0x40A45E, &CStreaming::LoadAllRequestedModels, PATCH_JUMP);
+    InjectHook(0x4087E0, &CStreaming::RequestModel, PATCH_JUMP);
+    InjectHook(0x40E170, &CStreaming::ProcessLoadingChannel, PATCH_JUMP);
+    InjectHook(0x40E460, &CStreaming::FlushChannels, PATCH_JUMP);
+    InjectHook(0x40CBA0, &CStreaming::RequestModelStream, PATCH_JUMP);
+    InjectHook(0x40E3A0, &CStreaming::LoadRequestedModels, PATCH_JUMP);
+    //////////////
+    // NOT TESTED
+    //////////////
+    //InjectHook(0x40E4E0, &CStreaming::FlushRequestList, PATCH_JUMP);
+
+}
 
 bool CStreaming::AreAnimsUsedByRequestedModels(int AnimFileIndex) {
     return plugin::CallAndReturnDynGlobal<bool, int>(0x407AD0, AnimFileIndex);
@@ -576,4 +594,80 @@ bool CStreaming::RemoveLoadedVehicle() {
 
 void CStreaming::RetryLoadFile(int streamNum) {
     plugin::CallDynGlobal<int>(0x4076C0, streamNum);
+}
+
+
+DWORD CStreaming::LoadRequestedModels()
+{
+    DWORD channelIndex = 0;
+
+    if (ms_bLoadingBigModel)
+    {
+        channelIndex = 0;
+        ms_numberOfBytesRead = 0;
+    }
+    else
+    {
+        channelIndex = ms_numberOfBytesRead;
+    }
+    if (ms_channel[channelIndex].LoadStatus)
+    {
+        ProcessLoadingChannel(channelIndex);
+        channelIndex = ms_numberOfBytesRead;
+    }
+    if (!ms_bLoadingBigModel)
+    {
+        if (!ms_channel[-channelIndex + 1].LoadStatus)
+        {
+            RequestModelStream(1 - channelIndex);
+            channelIndex = ms_numberOfBytesRead;
+        }
+        if (!ms_channel[channelIndex].LoadStatus && !ms_bLoadingBigModel)
+        {
+            RequestModelStream(channelIndex);
+            channelIndex = ms_numberOfBytesRead;
+        }
+    }
+    if (ms_channel[channelIndex].LoadStatus != LOADSTATE_Requested)
+    {
+        ms_numberOfBytesRead = 1 - channelIndex;
+    }
+    return channelIndex;
+}
+
+//////////////
+// NOT TESTED
+//////////////
+bool CStreaming::FlushRequestList()
+{
+    std::printf(" CStreaming::FlushRequestList called\n");
+
+    CStreamingInfo *streamingInfo = nullptr; 
+    CStreamingInfo *nextStreamingInfo = nullptr;
+
+    if (ms_pStartRequestedList->m_nNextIndex == -1)
+    {
+        streamingInfo = nullptr;
+    }
+    else
+    {
+        streamingInfo = &CStreamingInfo::ms_pArrayBase[ms_pStartRequestedList->m_nNextIndex];
+    }
+    if (streamingInfo != ms_pEndRequestedList)
+    {
+        do
+        {
+            if (streamingInfo->m_nNextIndex == -1)
+            {
+                nextStreamingInfo = nullptr;
+            }
+            else
+            {
+                nextStreamingInfo = &CStreamingInfo::ms_pArrayBase[streamingInfo->m_nNextIndex];
+            }
+            RemoveModel(streamingInfo - ms_aInfoForModel);
+            streamingInfo = nextStreamingInfo;
+        } while (nextStreamingInfo != ms_pEndRequestedList);
+    }
+    return FlushChannels();
 }

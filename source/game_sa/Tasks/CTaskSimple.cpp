@@ -7,6 +7,11 @@ Do not delete this comment block. Respect others' work!
 
 #include "StdInc.h"
 
+void CTaskSimple::InjectHooks()
+{
+    InjectHook(0x6899F0, &CTaskSimpleSwim::ProcessSwimAnims, PATCH_JUMP);
+}
+
 bool CTaskSimple::ProcessPed(class CPed *ped)
 {
     return ((bool(__thiscall *)(CTaskSimple *, class CPed *))plugin::GetVMT(this, 7))(this, ped);

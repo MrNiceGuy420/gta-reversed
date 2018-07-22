@@ -1,18 +1,22 @@
+# NOTE: This is only a mirror, do not create issues or pull requests here, you can do that on original repository which is hosted on [GitLab](https://gitlab.com/gtahackers/gta-reversed/).
+
 ## gtasa-reversed
 A project to reverse Grand Theft Auto San Andreas completely, and to rewrite and document every function. 
 
 #### Build Instructions
 1) Download and install latest CMake for windows from [HERE](https://cmake.org/download/).
 
-2) Open CMake GUI ![Capture](/uploads/9409c1da6c25fbe4423f750d45f29000/Capture.PNG)
+2) Open CMake GUI ![CMake GUI](https://gitlab.com/gtahackers/gta-reversed/uploads/9409c1da6c25fbe4423f750d45f29000/Capture.PNG)
+
 
 3) Set the Source and Build directories (Don't forget to append "Bin" after the path for build), like this: 
 
-![Capture](/uploads/a4c08a7094c1d8fe6727e24aad6c0203/Capture.PNG)
+![CMake GUI](https://gitlab.com/gtahackers/gta-reversed/uploads/a4c08a7094c1d8fe6727e24aad6c0203/Capture.PNG)
 
 4) Click configure, you'll see a dialogue box, choose "Visual Studio 15 2017," and click Finish.
 
-![Capture](/uploads/3b70ee507958c3703e87c1ad8d09deb2/Capture.PNG) 
+
+![CMake GUI](https://gitlab.com/gtahackers/gta-reversed/uploads/3b70ee507958c3703e87c1ad8d09deb2/Capture.PNG) 
 
 5) Once configuration is complete, click the Generate button.  
 6) You'll find GTASA.sln in Bin folder.

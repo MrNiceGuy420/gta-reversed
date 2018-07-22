@@ -24,6 +24,8 @@ struct tStreamingFileDesc
   int m_StreamHandle;
 };
 
+VALIDATE_SIZE(tStreamingFileDesc, 0x30);
+
 struct tStreamingChannel
 {
     int modelIds[16];
@@ -100,7 +102,7 @@ public:
      static int AddImageToList(char const *lpFileName, bool bNotPlayerImg);
      static void AddLodsToRequestList(CVector const *Posn, unsigned int Streamingflags);
      static void AddModelsToRequestList(CVector const *posn, unsigned int StreamingFlags);
-     static bool AddToLoadedVehiclesList();
+     static bool AddToLoadedVehiclesList(int modelIndex);
      static bool AreAnimsUsedByRequestedModels(int AnimFileIndex);
      static bool AreTexturesUsedByRequestedModels(int txdIndex);
      static void ClearFlagForAll(unsigned int eStreamingFlag);

@@ -58,6 +58,7 @@ public:
 
     CTaskSimpleSwim(CVector const* pPosn, CPed* pPed);
 
+    bool ProcessPed(CPed *pPed);
     void ProcessSwimAnims(CPed *pPed);
     void ProcessSwimmingResistance(CPed*pPed);
     void ProcessEffects(CPed*pPed);

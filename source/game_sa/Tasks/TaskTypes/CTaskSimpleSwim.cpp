@@ -8,6 +8,171 @@ CTaskSimpleSwim::CTaskSimpleSwim(CVector const* pPosn, CPed* pPed) : CTaskSimple
     plugin::CallMethod<0x688930, CTaskSimpleSwim*, CVector const*, CPed*>(this, pPosn, pPed);
 }
 
+bool CTaskSimpleSwim::ProcessPed(CPed *pPed)
+{
+    if (m_pEntity)
+    {
+        CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, DEFAULT_IDLE_STANCE, 8.0);
+        pPed->m_nMoveState = PEDMOVE_STILL;
+        pPed->field_538 = PEDMOVE_STILL;
+
+        FxSystem_c * pFxSystem = m_pFxSystem;
+        if (pFxSystem)
+        {
+            pFxSystem->Kill();
+            m_pFxSystem = 0;
+        }
+        return true;
+    }
+
+    if (m_vecMoveBlendRatio.z > CTaskSimpleSwim::SWIM_STOP_TIME || (pPed->m_nPedFlags & 1))
+    {
+        CAnimBlendAssociation * pAnimAssociation = nullptr;
+        // I still haven't figured out what the hell is animation ID 191
+        if (m_AnimID != 191)
+        {
+            pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, m_AnimID);
+        }
+        unsigned int animId = DEFAULT_IDLE_STANCE;
+        pPed->field_538 = PEDMOVE_STILL;
+        pPed->m_nMoveState = PEDMOVE_STILL;
+        if (pAnimAssociation)
+        {
+            if (pAnimAssociation->m_nAnimId == DEFAULT_CLIMB_JUMP)
+                pAnimAssociation->m_nFlags |= 8u;
+            else
+                pAnimAssociation->m_fBlendDelta = -4.0;
+            if (m_AnimID == SWIM_SWIM_BREAST)
+            {
+                animId = DEFAULT_WALK_CIVI;
+                pPed->field_538 = PEDMOVE_WALK;
+                pPed->m_nMoveState = PEDMOVE_WALK;
+            }
+            else if (m_AnimID == SWIM_SWIM_CRAWL)
+            {
+                animId = DEFAULT_RUN_CIVI;
+                pPed->field_538 = PEDMOVE_RUN;
+                pPed->m_nMoveState = PEDMOVE_RUN;
+            }
+        }
+        CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, animId, 4.0);
+        pPed->RestoreHeadingRate();
+        FxSystem_c * pFxSystem = m_pFxSystem;
+        if (pFxSystem)
+        {
+            pFxSystem->Kill();
+            m_pFxSystem = 0;
+        }
+        return true;
+    }
+
+    pPed->m_nPedFlags &= 0xFFFFFDFF;
+
+    if (pPed->IsPlayer())
+    {
+        // m_vecMoveBlendRatio.z seems to remain 0.0f for some reason, so this code seems not to run at all
+        // or it might be for cutscenes or mission? but which one? :D
+        if (m_vecMoveBlendRatio.z && m_nSwimState != SWIM_UNDERWATER_SPRINTING)
+        {
+            ProcessControlAI(pPed);
+            float fSwimmingTimeStep = static_cast <float>((CTimer::ms_fTimeStep / 50.0) * 1000.0);
+            if (m_vecMoveBlendRatio.z <= fSwimmingTimeStep)
+            {
+                m_vecMoveBlendRatio.z = 0.0f;
+            }
+            else
+            {
+                m_vecMoveBlendRatio.z -= fSwimmingTimeStep;
+            }
+
+            CVector *pVecPosition = &pPed->m_placement.m_vPosn;
+            if (pPed->m_matrix)
+            {
+                pVecPosition = &pPed->m_matrix->pos;
+            }
+            CVector pVecOut;
+            VectorSub(&pVecOut, &m_vecMoveBlendRatio, pVecPosition);
+            pPed->m_pPlayerData->m_fMoveBlendRatio = sqrt(pVecOut.x * pVecOut.x + pVecOut.y * pVecOut.y);
+            CPlayerData * pPlayerData = pPed->m_pPlayerData;
+            if (pPlayerData->m_fMoveBlendRatio < 0.5)
+            {
+                pPlayerData->m_fMoveBlendRatio = 0.0;
+                CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, DEFAULT_IDLE_STANCE, 4.0);
+                pPed->RestoreHeadingRate();
+                DestroyFxSystem();
+                return 1;
+            }
+            if (pPlayerData->m_fMoveBlendRatio > 1.0)
+                pPlayerData->m_fMoveBlendRatio = 1.0;
+        }
+        else
+        {
+            ProcessControlInput(reinterpret_cast<CPlayerPed*>(pPed));
+            m_vecMoveBlendRatio.z = 0.0f;
+        }
+        bool bDecreaseAir = false;
+        float fDecreaseAirMultiplicator = 1.0;
+        if (m_nSwimState == SWIM_UNDERWATER_SPRINTING)
+        {
+            bDecreaseAir = true;
+            CAnimBlendAssociation * pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, SWIM_SWIM_UNDER);
+            if (pAnimAssociation)
+            {
+                fDecreaseAirMultiplicator = pAnimAssociation->m_fSpeed * pAnimAssociation->m_fBlendAmount + 1.0f;
+            }
+        }
+
+        CPlayerPed * pPlayerPed = reinterpret_cast<CPlayerPed *> (pPed);
+        pPlayerPed->HandlePlayerBreath(bDecreaseAir, fDecreaseAirMultiplicator);
+        if (m_pPed)
+        {
+            if (m_nSwimState != SWIM_UNDERWATER_SPRINTING)
+            {
+                CPlayerData * pPlayerData = pPed->m_pPlayerData;
+                if (CStats::GetFatAndMuscleModifier(STAT_MOD_AIR_IN_LUNG) * 0.5f > pPlayerData->m_fBreath)
+                    pPed->Say(356, 0, 1.0, 0, 0, 0);
+            }
+        }
+        pPed->SetMoveState(PEDMOVE_NONE);
+    }
+    else
+    {
+        ProcessControlAI(pPed);
+
+        // I didn't really get a chance to this this part of code, if someone knows how to make 
+        // other peds swim, then let me know because this code will be needed. I did try spawning peds in the
+        // sea but they die lol. Looks like this code will run on some missions.
+        if (m_nSwimState == SWIM_UNDERWATER_SPRINTING)
+        {
+            eWeaponType weaponType = static_cast<eWeaponType>(WEAPON_ARMOUR | WEAPON_BASEBALLBAT);
+
+            CPedDamageResponseCalculator pedDamageResponseCalculator;
+            pedDamageResponseCalculator.Constructor1(0, CTimer::ms_fTimeStep, weaponType, PED_PIECE_TORSO, false);
+
+            unsigned char pedFlags = (pPed->m_nPedFlags >> 8) & 1;
+
+            CEventDamage eventDamage;
+            eventDamage.Constructor1(0, CTimer::m_snTimeInMilliseconds, weaponType, PED_PIECE_TORSO, 0, 0, pedFlags);
+            CPedDamageResponse damageResponseInfo;
+            if (eventDamage.AffectsPed(pPed))
+            {
+                pedDamageResponseCalculator.ComputeDamageResponse(pPed, &damageResponseInfo, true);
+            }
+            else
+            {
+                damageResponseInfo.bDamageCalculated = true;
+            }
+            pPed->m_pIntelligence->m_eventGroup.Add(reinterpret_cast <CEvent&>(eventDamage), false);
+            eventDamage.Destructor1();
+            pedDamageResponseCalculator.Destructor1();
+        }
+    }
+    ProcessSwimAnims(pPed);
+    ProcessSwimmingResistance(pPed);
+    ProcessEffects(pPed);
+    return false;
+}
+
 void CTaskSimpleSwim::ProcessSwimAnims(CPed *pPed)
 {
     CPlayerPed * pPlayerPed = (CPlayerPed *)pPed;
@@ -308,7 +473,6 @@ void CTaskSimpleSwim::ProcessSwimAnims(CPed *pPed)
 
     }
 }
-
 
 void CTaskSimpleSwim::ProcessSwimmingResistance(CPed* pPed)
 {

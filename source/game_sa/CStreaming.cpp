@@ -671,3 +671,7 @@ bool CStreaming::FlushRequestList()
     }
     return FlushChannels();
 }
+
+bool CStreaming::AddToLoadedVehiclesList(int modelIndex) {
+    return plugin::CallAndReturnDynGlobal<bool, int>(0x408000, modelIndex);
+}

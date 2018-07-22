@@ -3,187 +3,257 @@
 
 #pragma comment(lib, "detours.lib")
 
-typedef void(__thiscall*  hCTaskSimpleSwim__ProcessPed)
+typedef char(__cdecl *hCStreaming__ConvertBufferToObject)
 (
-    CTaskSimpleSwim * pThis, CPed *pPed
+    unsigned char * pBuffer, int modelId
 );
-auto OLD_CTaskSimpleSwim__ProcessPed = (hCTaskSimpleSwim__ProcessPed)0x68B1C0;
+auto OLD_CStreaming__ConvertBufferToObject = (hCStreaming__ConvertBufferToObject)0x40C6B0;
 
-bool __fastcall CTaskSimpleSwim__ProcessPed(CTaskSimpleSwim * pThis, void* padding, CPed *pPed);
-
+char __cdecl CStreaming__ConvertBufferToObject(unsigned char * pBuffer, int modelId);
 
 
 void InjectHooksMain(void)
 {
-    CAnimManager::InjectHooks();
-    CTaskManager::InjectHooks();
-    CStreaming::InjectHooks();
+   CAnimManager::InjectHooks();
+   CTaskManager::InjectHooks();
+   CStreaming::InjectHooks();
 
+
+    
     DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CTaskSimpleSwim__ProcessPed, CTaskSimpleSwim__ProcessPed);
+    DetourAttach(&(PVOID&)OLD_CStreaming__ConvertBufferToObject, CStreaming__ConvertBufferToObject);
 
     DetourTransactionCommit(); 
     
 }
 
 
-bool __fastcall CTaskSimpleSwim__ProcessPed(CTaskSimpleSwim * pThis, void* padding, CPed *pPed)
+char __cdecl CStreaming__ConvertBufferToObject(unsigned char * pBuffer, int modelId)
 {
-    if (pThis->m_pEntity) //*(pThis + 14))
-    {
-        CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, 3u, 8.0);
-        pPed->m_nMoveState = 1;
-        pPed->field_538 = 1;
-    LABEL_44:
-        FxSystem_c * pFxSystem = pThis->m_pFxSystem;
-        if (pFxSystem)
-        {
-            pFxSystem->Kill();
-            pThis->m_pFxSystem = 0;
-        }
-        return 1;
-    }
-    
-    if (pThis->m_vecMoveBlendRatio.z > CTaskSimpleSwim::SWIM_STOP_TIME || (pPed->m_nPedFlags & 1))
-    {
-        CAnimBlendAssociation * pAnimAssociation = nullptr;
-        if (pThis->m_AnimID != 191)
-            pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, pThis->m_AnimID);
-        unsigned int animId = 3;
-        pPed->field_538 = 1;
-        pPed->m_nMoveState = 1;
-        if (pAnimAssociation)
-        {
-            if (pAnimAssociation->m_nAnimId == 128)
-                pAnimAssociation->m_nFlags |= 8u;
-            else
-                pAnimAssociation->m_fBlendDelta = -4.0;
-            if (pThis->m_AnimID == 311)                         // pThis->m_AnimID
-            {
-                animId = 0;
-                pPed->field_538 = 4;
-                pPed->m_nMoveState = 4;
-            }
-            else if (pThis->m_AnimID == 312)
-            {
-                animId = 1;
-                pPed->field_538 = 6;
-                pPed->m_nMoveState = 6;
-            }
-        }
-        CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, animId, 4.0);
-        pPed->RestoreHeadingRate();
-        goto LABEL_44;
-    }
 
-    pPed->m_nPedFlags &= 0xFFFFFDFF;
+    std::printf("CStreaming::ConvertBufferToObject called! modelId: %d | pBuffer: %s\n", modelId, pBuffer);
 
-    if (pPed->IsPlayer())
+    //return OLD_CStreaming__ConvertBufferToObject(pBuffer, modelId);
+  
+
+    int BufferSize; // eax
+    unsigned int BufferSize1; // ebp
+    RwStream *pRwStream0; // eax
+    RwStream *pRwStream1; // edi
+    CBaseModelInfo *pBaseModelInfo0; // ebp
+    int animFileIndex; // eax
+    int wTxdIndex; // ecx
+    TxdDef *pTxdDef1; // eax
+    RwStream *pRwStream2; // eax
+    TxdDef *pTxdDef0; // eax
+    int txdIndex; // eax
+    char bTxdLoaded; // al
+    CBaseModelInfo *pBaseModelInfo; // eax
+    CStreamingInfo *pStreamingInfo; // ecx
+    int streamingMemoryUsed; // eax
+    int txdIndex1; // [esp-18h] [ebp-38h]
+    CStreamingInfo *pStreamingInfo1; // [esp-14h] [ebp-34h]
+    RtDict* pRtDictionary; // [esp+0h] [ebp-20h]
+    int data[2]; // [esp+4h] [ebp-1Ch]
+    RwChunkHeaderInfo chunkHeaderInfo; // [esp+Ch] [ebp-14h]
+    char bLoaded; // [esp+24h] [ebp+4h]
+
+
+    BufferSize = CStreaming::ms_aInfoForModel[modelId].m_nCdSize << 11;
+    BufferSize1 = BufferSize;
+    data[0] = (int)pBuffer;
+    data[1] = BufferSize;
+    pRwStream0 = _rwStreamInitialize(&gRwStream, 0, rwSTREAMMEMORY, rwSTREAMREAD, data);
+    pRwStream1 = pRwStream0;
+    if (modelId >= 20000)
     {
-        // pThis->m_vecMoveBlendRatio.z seems to remain 0.0f for some reason, so this code seems not to run at all
-        if (pThis->m_vecMoveBlendRatio.z && pThis->m_nSwimState != SWIM_UNDERWATER_SPRINTING)
+        if (modelId >= 25000)
         {
-            pThis->ProcessControlAI(pPed);
-            float v6 = (CTimer::ms_fTimeStep / 50.0) * 1000.0;
-            if (pThis->m_vecMoveBlendRatio.z <= v6)
+            if (modelId >= 25255)
             {
-                pThis->m_vecMoveBlendRatio.z = 0.0f;
+                if (modelId >= 25511)
+                {
+                    if (modelId >= 25575)
+                    {
+                        if (modelId >= 25755)
+                        {
+                            if (modelId >= 26230)
+                            {
+                                CStreamedScripts & pStreamedScripts = CTheScripts::StreamedScripts;
+                                pStreamedScripts.LoadStreamedScript(pRwStream0, modelId - 26230);
+                            }
+                            else
+                            {
+                                CVehicleRecording::Load(pRwStream0, modelId - 25755, BufferSize1);
+                            }
+                        } 
+                        else
+                        {
+                            if (!(CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0xE)
+                                && !CStreaming::AreAnimsUsedByRequestedModels(modelId - 25575))
+                            {
+                                CStreaming::RemoveModel(modelId);
+                                RwStreamClose(pRwStream1, data);
+                                return 0;
+                            }
+                            CAnimManager::LoadAnimFile(pRwStream1, 1, 0);
+                            CAnimManager::CreateAnimAssocGroups();
+                        }
+                    }
+                    else
+                    {
+                        ThePaths.LoadPathFindData(pRwStream0, modelId - 25511);
+                    }
+                }
+                else if (!CIplStore::LoadIpl(modelId - 25255, pBuffer, BufferSize1))
+                {
+                    CStreaming::RemoveModel(modelId);
+                    CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
+                    RwStreamClose(pRwStream1, data);
+                    return 0;
+                }
             }
-            else
+            else if (!CColStore::LoadCol(modelId - 25000, pBuffer, BufferSize1))
             {
-                pThis->m_vecMoveBlendRatio.z -= v6;
+            LABEL_41:
+                CStreaming::RemoveModel(modelId);
+                CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
+                RwStreamClose(pRwStream1, data);
+                return 0;
             }
-
-            CVector *pVecPosition = &pPed->m_placement.m_vPosn;
-            if (pPed->m_matrix)
-            {
-                pVecPosition = &pPed->m_matrix->pos;
-            }
-            CVector pVecOut;
-            VectorSub(&pVecOut, &pThis->m_vecMoveBlendRatio, pVecPosition);
-            pPed->m_pPlayerData->m_fMoveBlendRatio = sqrt(pVecOut.x * pVecOut.x + pVecOut.y * pVecOut.y);
-            CPlayerData * pPlayerData = pPed->m_pPlayerData;
-            if (pPlayerData->m_fMoveBlendRatio < 0.5)
-            {
-                pPlayerData->m_fMoveBlendRatio = 0.0;
-                CAnimManager::BlendAnimation(pPed->m_pRwClump, pPed->m_nAnimGroup, 3u, 4.0);
-                pPed->RestoreHeadingRate();
-                pThis->DestroyFxSystem();
-                return 1;
-            }
-            if (pPlayerData->m_fMoveBlendRatio > 1.0)
-                pPlayerData->m_fMoveBlendRatio = 1.0;
         }
         else
         {
-            pThis->ProcessControlInput(reinterpret_cast<CPlayerPed*>(pPed));
-            pThis->m_vecMoveBlendRatio.z = 0.0f;
-        }
-        bool bDecreaseAir = false;
-        float fDecreaseAirMultiplicator = 1.0;
-        if (pThis->m_nSwimState == SWIM_UNDERWATER_SPRINTING)
-        {
-            bDecreaseAir = true;
-            CAnimBlendAssociation * pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, 314);
-            if (pAnimAssociation)
+            if ((CTxdStore::ms_pTxdPool->m_byteMap[modelId - 20000].IntValue() & 0x80u) == 0)
+                pTxdDef0 = &CTxdStore::ms_pTxdPool->m_pObjects[modelId - 20000]; //m_pObjects + 12 * (modelId - 20000);
+            else
+                pTxdDef0 = 0;
+            txdIndex = pTxdDef0->m_wParentIndex;              
+            if (txdIndex != -1 && !CTxdStore::GetTxd(txdIndex))
+                goto LABEL_38;
+            if (!(CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0xE)
+                && !CStreaming::AreTexturesUsedByRequestedModels(modelId - 20000))
             {
-                fDecreaseAirMultiplicator = pAnimAssociation->m_fSpeed * pAnimAssociation->m_fBlendAmount + 1.0f;
+                CStreaming::RemoveModel(modelId);
+                RwStreamClose(pRwStream1, data);
+                return 0;
             }
-        }
-
-        CPlayerPed * pPlayerPed = reinterpret_cast<CPlayerPed *> (pPed);
-        pPlayerPed->HandlePlayerBreath(bDecreaseAir, fDecreaseAirMultiplicator);
-        if (pThis->m_pPed)
-        {
-            if (pThis->m_nSwimState != SWIM_UNDERWATER_SPRINTING)
+            txdIndex1 = modelId - 20000;
+            if (CStreaming::ms_bLoadingBigModel)
             {
-                CPlayerData * pPlayerData = pPed->m_pPlayerData;
-                if (CStats::GetFatAndMuscleModifier(STAT_MOD_AIR_IN_LUNG) * 0.5f > pPlayerData->m_fBreath)
-                    pPed->Say(356, 0, 1.0, 0, 0, 0);
-            }
-        }
-        pPed->SetMoveState(PEDMOVE_NONE);
-    }
-    else
-    {
-        pThis->ProcessControlAI(pPed);
-
-        // I didn't really get a chance to this this part of code, if someone knows how to make 
-        // other peds swim, then let me know because this code will be needed. I did try spawning peds in the
-        // sea but they die lol.
-        if (pThis->m_nSwimState == SWIM_UNDERWATER_SPRINTING)
-        {
-            eWeaponType weaponType = static_cast<eWeaponType>(WEAPON_ARMOUR | WEAPON_BASEBALLBAT);
-
-            CPedDamageResponseCalculator pedDamageResponseCalculator;
-            pedDamageResponseCalculator.Constructor1(0, CTimer::ms_fTimeStep, weaponType, PED_PIECE_TORSO, false);
-
-            unsigned char pedFlags = (pPed->m_nPedFlags >> 8) & 1;
-
-            CEventDamage eventDamage;
-            eventDamage.Constructor1(0, CTimer::m_snTimeInMilliseconds, weaponType, PED_PIECE_TORSO, 0, 0, pedFlags);
-            CPedDamageResponse damageResponseInfo;
-            if (eventDamage.AffectsPed(pPed))
-            {
-                pedDamageResponseCalculator.ComputeDamageResponse(pPed, &damageResponseInfo, true);
+                bTxdLoaded = CTxdStore::StartLoadTxd(txdIndex1, pRwStream1);
+                if (!bTxdLoaded)
+                {
+                LABEL_38:
+                    CStreaming::RemoveModel(modelId);
+                    CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
+                    RwStreamClose(pRwStream1, data);
+                    return 0;
+                }
+                CStreaming::ms_aInfoForModel[modelId].m_nLoadState = 4;
             }
             else
             {
-                damageResponseInfo.bDamageCalculated = true;
+                bTxdLoaded = CTxdStore::LoadTxd(txdIndex1, pRwStream1);
             }
-            pPed->m_pIntelligence->m_eventGroup.Add(reinterpret_cast <CEvent&>(eventDamage), false);
-            eventDamage.Destructor1();
-            pedDamageResponseCalculator.Destructor1();
+            if (!bTxdLoaded)
+                goto LABEL_38;
         }
+        pBaseModelInfo0 = (CVehicleModelInfo *)pBuffer;
+        goto LABEL_56;
     }
-    pThis->ProcessSwimAnims(pPed);
-    pThis->ProcessSwimmingResistance(pPed);
-    pThis->ProcessEffects(pPed);
-    return 0;
+    pBaseModelInfo0 = CModelInfo::ms_modelInfoPtrs[modelId];
+    animFileIndex = pBaseModelInfo0->GetAnimFileIndex();
+    wTxdIndex = pBaseModelInfo0->m_nTxdIndex;
+
+    if ((CTxdStore::ms_pTxdPool->m_byteMap[wTxdIndex].IntValue() & 0x80u) == 0)
+        pTxdDef1 = &CTxdStore::ms_pTxdPool->m_pObjects[wTxdIndex] ;//m_pObjects + 12 * wTxdIndex;
+    else
+        pTxdDef1 = 0;
+
+    if (!pTxdDef1->m_pRwDictionary || animFileIndex != -1 && !CAnimManager::ms_aAnimBlocks[animFileIndex].bLoaded)
+        goto LABEL_41;
+
+    CTxdStore::AddRef(wTxdIndex);
+    if (animFileIndex != -1)
+        CAnimManager::AddAnimBlockRef(animFileIndex);
+    CTxdStore::SetCurrentTxd(pBaseModelInfo0->m_nTxdIndex);
+    if (pBaseModelInfo0->GetRwModelType() == 1)
+    {
+        pRtDictionary = 0;
+        RwStreamReadChunkHeaderInfo(pRwStream1, &chunkHeaderInfo);
+        if (chunkHeaderInfo.type == 43)
+        {
+            pRtDictionary = RtDictSchemaStreamReadDict(&RpUVAnimDictSchema, pRwStream1);
+            RtDictSchemaSetCurrentDict(&RpUVAnimDictSchema, pRtDictionary);
+        }
+        RwStreamClose(pRwStream1, data);
+        pRwStream2 = _rwStreamInitialize(&gRwStream, 0, rwSTREAMMEMORY, rwSTREAMREAD, data);
+        CFileLoader::LoadAtomicFile(pRwStream2, modelId);
+        if (pRtDictionary)
+            RtDictDestroy(pRtDictionary);
+    }
+    else
+    {
+        pBaseModelInfo0->GetModelType();
+        bLoaded = CFileLoader::LoadClumpFile(pRwStream1, modelId);
+    }
+    if (CStreaming::ms_aInfoForModel[modelId].m_nLoadState != 4)
+    {
+        CTxdStore::RemoveRefWithoutDelete(pBaseModelInfo0->m_nTxdIndex);
+        if (animFileIndex != -1)
+            CAnimManager::RemoveAnimBlockRefWithoutDelete(animFileIndex);
+        if (!bLoaded)
+            goto LABEL_23;
+        if (pBaseModelInfo0->GetModelType() == 6)
+            bLoaded = CStreaming::AddToLoadedVehiclesList(modelId);
+    }
+    if (!bLoaded)
+    {
+    LABEL_23:
+        CStreaming::RemoveModel(modelId);
+        CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
+        RwStreamClose(pRwStream1, data);
+        return 0;
+    }
+LABEL_56:
+    RwStreamClose(pRwStream1, data);
+    if (modelId >= 20000)
+    {
+        if (modelId >= 25000 && (modelId < 25575 || modelId >= 25755) && modelId < 26230
+            || CStreaming::ms_aInfoForModel[modelId].m_nFlags & 6)
+        {
+            goto LABEL_70;
+        }
+        pStreamingInfo1 = CStreaming::ms_startLoadedList;
+        pStreamingInfo = &CStreaming::ms_aInfoForModel[modelId];
+    }
+    else
+    {
+        if (pBaseModelInfo0->GetModelType() == 6
+            || pBaseModelInfo0->GetModelType() == 7)
+        {
+            goto LABEL_70;
+        }
+        pBaseModelInfo = pBaseModelInfo0->AsAtomicModelInfoPtr();
+        if (pBaseModelInfo)
+            pBaseModelInfo->m_nAlpha = -((CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0x24) != 0);
+        pStreamingInfo = &CStreaming::ms_aInfoForModel[modelId];
+        if (CStreaming::ms_aInfoForModel[modelId].m_nFlags & 6)
+            goto LABEL_70;
+        pStreamingInfo1 = CStreaming::ms_startLoadedList;
+    }
+    pStreamingInfo->AddToList( pStreamingInfo1);
+LABEL_70:
+    if (CStreaming::ms_aInfoForModel[modelId].m_nLoadState != 4)
+    {
+        streamingMemoryUsed = CStreaming::ms_memoryUsed;
+        CStreaming::ms_aInfoForModel[modelId].m_nLoadState = 1;
+        CStreaming::ms_memoryUsed = (CStreaming::ms_aInfoForModel[modelId].m_nCdSize << 11) + streamingMemoryUsed;
+    }
+    return 1;//*/
 }
-
-

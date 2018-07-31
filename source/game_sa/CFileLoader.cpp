@@ -7,8 +7,8 @@ Do not delete this comment block. Respect others' work!
 
 #include "StdInc.h"
 
-void CFileLoader::LoadAtomicFile(RwStream *stream, unsigned int modelIndex) {
-    plugin::CallDynGlobal<RwStream *, unsigned int>(0x5371F0, stream, modelIndex);
+bool CFileLoader::LoadAtomicFile(RwStream *stream, unsigned int modelIndex) {
+    return plugin::CallAndReturnDynGlobal<bool, RwStream *, unsigned int>(0x5371F0, stream, modelIndex);
 }
 
 void CFileLoader::LoadAtomicFile(char const *filename) {
@@ -37,4 +37,8 @@ int CFileLoader::LoadClumpObject(char const *line) {
 
 bool CFileLoader::LoadCollisionFile(unsigned char *data, unsigned int dataSize, unsigned char colId) {
     return plugin::CallAndReturnDynGlobal<bool, unsigned char *, unsigned int, unsigned char>(0x538440, data, dataSize, colId);
+}
+
+bool CFileLoader::FinishLoadClumpFile(RwStream *stream, unsigned int modelIndex) {
+    return plugin::CallAndReturnDynGlobal<bool, RwStream *, unsigned int>(0x537450, stream, modelIndex);
 }

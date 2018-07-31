@@ -16,6 +16,27 @@
 #include "CLoadedCarGroup.h"
 #include "CDirectory.h"
 
+enum eResourceMaxIDs
+{
+                             // Model ID Range
+    RESOURCE_ID_DFF = 19999, // 0-19999
+    RESOURCE_ID_TXD = 24999, // 20000-24999
+    RESOURCE_ID_COL = 25255, // 25000-25255
+    RESOURCE_ID_IPL = 25510, // 25256-25510
+    RESOURCE_ID_DAT = 25574, // 25511-25574 
+    RESOURCE_ID_IFP = 25754, // 25575-25754
+    RESOURCE_ID_RRR = 26229, // 25755-26229 (vechicle recordings)
+    RESOURCE_ID_SCM = 26311, // 26230-26311 (streamed scripts)
+};
+
+struct tRwStreamInitializeData
+{
+    unsigned char * m_pBuffer;
+    unsigned int m_uiBufferSize;
+};
+
+VALIDATE_SIZE(tRwStreamInitializeData, 0x8);
+
 struct tStreamingFileDesc
 {
   char m_szName[40];
@@ -108,7 +129,7 @@ public:
      static void ClearFlagForAll(unsigned int eStreamingFlag);
      static void ClearSlots(int NumOfSlots);
     //! ChanndelIndex is unused
-     static char ConvertBufferToObject(char * pFileBuffer, int ChannelIndex);
+     static bool ConvertBufferToObject(unsigned char* pFileBuffer, int ChannelIndex);
      static void DeleteAllRwObjects();
      static bool DeleteLeastUsedEntityRwObject(bool bNotOnScreen, unsigned int StreamingFlags);
      static void DeleteRwObjectsAfterDeath(CVector const *PlayerPosn);
@@ -120,7 +141,7 @@ public:
      static void DisableCopBikes(bool bDisable);
     //! RandFactor : random number between 1-7
      static int FindMIPedSlotForInterior(int RandFactor);
-     static bool FinishLoadingLargeFile(char * pFileBuffer, int modelIndex);
+     static bool FinishLoadingLargeFile(unsigned char * pFileBuffer, int modelIndex);
      static bool FlushChannels();
      static bool FlushRequestList();
      static void ForceLayerToRead(int arg1);

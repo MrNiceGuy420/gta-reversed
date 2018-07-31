@@ -3,257 +3,233 @@
 
 #pragma comment(lib, "detours.lib")
 
-typedef char(__cdecl *hCStreaming__ConvertBufferToObject)
-(
-    unsigned char * pBuffer, int modelId
-);
-auto OLD_CStreaming__ConvertBufferToObject = (hCStreaming__ConvertBufferToObject)0x40C6B0;
-
-char __cdecl CStreaming__ConvertBufferToObject(unsigned char * pBuffer, int modelId);
-
+typedef void(__cdecl *hCRenderer_AddEntityToRenderList)( CEntity *pEntity, float fDistance );
+auto OLD_CRenderer_AddEntityToRenderList = (hCRenderer_AddEntityToRenderList)0x05534B0;
+void __cdecl CRenderer_AddEntityToRenderList(CEntity *pEntity, float fDistance);
 
 void InjectHooksMain(void)
 {
-   CAnimManager::InjectHooks();
-   CTaskManager::InjectHooks();
-   CStreaming::InjectHooks();
+    CAnimManager::InjectHooks();
+    CTaskManager::InjectHooks();
+    CStreaming::InjectHooks();
+    CRenderer::InjectHooks();
 
-
-    
-    DetourRestoreAfterWith();
+    /*DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CStreaming__ConvertBufferToObject, CStreaming__ConvertBufferToObject);
+    DetourAttach(&(PVOID&)OLD_CRenderer_AddEntityToRenderList, CRenderer_AddEntityToRenderList);
 
-    DetourTransactionCommit(); 
+    DetourTransactionCommit(); */
     
 }
 
 
-char __cdecl CStreaming__ConvertBufferToObject(unsigned char * pBuffer, int modelId)
+signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *outDistance)
 {
+    CEntity *pEntity0; // esi
+    int modelIndex; // eax
+    CBaseModelInfo *pBaseModelInfo; // edi
+    CBaseModelInfo * pBaseAtomicModelInfo; // eax
+    unsigned int v6; // ecx
+    CBaseModelInfo_vtbl *pBaseModelInfo; // edx
+    DWORD dwDirectionWasLooking; // edi
+    __int16 modelIndex0; // ax
+    int someFlagsMaybe; // ecx
+    unsigned int entityFlags; // eax
+    CMatrixLink *entityMatrix; // eax
+    CVector *vecPosition; // eax
+    CVector *entityPosAndVectorPos_sub_result; // eax
+    float magnitudeOfPositionAndCameraPos0; // ST0C_4
+    tTimeInfo* pModelTimeInfo; // eax
+    int wOtherTimeModel; // ebx
+    unsigned __int8 entityInterior; // al
+    CEntity *pEntityLod; // eax
+    CMatrixLink *entityMatrix2; // ecx
+    float *vecPosition0; // eax
+    unsigned int entityFlags0; // eax
+    unsigned int entityFlags1; // eax
+    CMatrixLink *entityMatrix4; // eax
+    CVector *vecPosition1; // eax
+    CVector *entityPosAndVectorPos_sub_result0; // eax
+    float magnitudeOfPositionAndCameraPos; // ST0C_4
+    CMatrixLink *entityMatrix3; // eax
+    float posX; // ecx
+    float posY; // edx
+    float posZ; // eax
+    float lodMultiplierAndDrawDistance; // [esp+10h] [ebp-14h]
+    char bDoSomething; // [esp+14h] [ebp-10h]
+    CVector out; // [esp+18h] [ebp-Ch]
+    float distanceBetweenCameraAndEntity; // [esp+28h] [ebp+4h]
 
-    std::printf("CStreaming::ConvertBufferToObject called! modelId: %d | pBuffer: %s\n", modelId, pBuffer);
-
-    //return OLD_CStreaming__ConvertBufferToObject(pBuffer, modelId);
-  
-
-    int BufferSize; // eax
-    unsigned int BufferSize1; // ebp
-    RwStream *pRwStream0; // eax
-    RwStream *pRwStream1; // edi
-    CBaseModelInfo *pBaseModelInfo0; // ebp
-    int animFileIndex; // eax
-    int wTxdIndex; // ecx
-    TxdDef *pTxdDef1; // eax
-    RwStream *pRwStream2; // eax
-    TxdDef *pTxdDef0; // eax
-    int txdIndex; // eax
-    char bTxdLoaded; // al
-    CBaseModelInfo *pBaseModelInfo; // eax
-    CStreamingInfo *pStreamingInfo; // ecx
-    int streamingMemoryUsed; // eax
-    int txdIndex1; // [esp-18h] [ebp-38h]
-    CStreamingInfo *pStreamingInfo1; // [esp-14h] [ebp-34h]
-    RtDict* pRtDictionary; // [esp+0h] [ebp-20h]
-    int data[2]; // [esp+4h] [ebp-1Ch]
-    RwChunkHeaderInfo chunkHeaderInfo; // [esp+Ch] [ebp-14h]
-    char bLoaded; // [esp+24h] [ebp+4h]
-
-
-    BufferSize = CStreaming::ms_aInfoForModel[modelId].m_nCdSize << 11;
-    BufferSize1 = BufferSize;
-    data[0] = (int)pBuffer;
-    data[1] = BufferSize;
-    pRwStream0 = _rwStreamInitialize(&gRwStream, 0, rwSTREAMMEMORY, rwSTREAMREAD, data);
-    pRwStream1 = pRwStream0;
-    if (modelId >= 20000)
+    pEntity0 = pEntity;
+    modelIndex = pEntity->m_nModelIndex;
+    pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[modelIndex];
+    pBaseAtomicModelInfo = pBaseModelInfo->AsAtomicModelInfoPtr();
+    bDoSomething = 1;
+    if ((pEntity->m_nType & 7) == 2)
     {
-        if (modelId >= 25000)
+        v6 = pEntity->m_nFlags;
+        if (v6 >= 0
+            && (!CRenderer::ms_bRenderTunnels && v6 & 0x40000000 || !CRenderer::ms_bRenderOutsideTunnels && !(v6 & 0x40000000)))
         {
-            if (modelId >= 25255)
+            return 0;
+        }
+    }
+
+    if (!pBaseAtomicModelInfo)
+    {
+        if (pBaseModelInfo->GetModelType() != 5 && pBaseModelInfo->GetModelType() != 4)
+        {
+            if (FindPlayerVehicle(-1, 0) == pEntity)
             {
-                if (modelId >= 25511)
+                if (gbFirstPersonRunThisFrame)
                 {
-                    if (modelId >= 25575)
+                    if (CReplay::Mode != 1)
                     {
-                        if (modelId >= 25755)
+                        
+                        dwDirectionWasLooking = TheCamera.m_aCams[TheCamera.m_nActiveCam].m_nDirectionWasLooking;
+                        CAutomobile * pVehicle = FindPlayerVehicle(-1, 0);
+                        if (pVehicle->m_nVehicleClass != 9
+                            || !(pVehicle->m_doors[3].m_nDoorFlags & 0x80))
                         {
-                            if (modelId >= 26230)
+                            if (dwDirectionWasLooking == 3)
+                                return 2;
+                            modelIndex0 = pEntity->m_nModelIndex;
+                            if (modelIndex0 == 432 || modelIndex0 == 437 || TheCamera.m_bInATunnelAndABigVehicle)
+                                return 2;
+                            if (dwDirectionWasLooking)
+                                goto LABEL_81;
+                            if (pVehicle->m_pHandlingData->m_nModelFlags & 0x4000)
+                                return 2;
+                            if (pEntity[25].object.m_pRwObject != 5
+                                || modelIndex0 == 453
+                                || modelIndex0 == 454
+                                || modelIndex0 == 430
+                                || modelIndex0 == 460)
                             {
-                                CStreamedScripts & pStreamedScripts = CTheScripts::StreamedScripts;
-                                pStreamedScripts.LoadStreamedScript(pRwStream0, modelId - 26230);
+                            LABEL_81:
+                                CRenderer::m_pFirstPersonVehicle = static_cast<CVehicle*>(pEntity);
+                                return 2;
                             }
-                            else
-                            {
-                                CVehicleRecording::Load(pRwStream0, modelId - 25755, BufferSize1);
-                            }
-                        } 
-                        else
-                        {
-                            if (!(CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0xE)
-                                && !CStreaming::AreAnimsUsedByRequestedModels(modelId - 25575))
-                            {
-                                CStreaming::RemoveModel(modelId);
-                                RwStreamClose(pRwStream1, data);
-                                return 0;
-                            }
-                            CAnimManager::LoadAnimFile(pRwStream1, 1, 0);
-                            CAnimManager::CreateAnimAssocGroups();
                         }
                     }
-                    else
-                    {
-                        ThePaths.LoadPathFindData(pRwStream0, modelId - 25511);
-                    }
-                }
-                else if (!CIplStore::LoadIpl(modelId - 25255, pBuffer, BufferSize1))
-                {
-                    CStreaming::RemoveModel(modelId);
-                    CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
-                    RwStreamClose(pRwStream1, data);
-                    return 0;
                 }
             }
-            else if (!CColStore::LoadCol(modelId - 25000, pBuffer, BufferSize1))
+            if (!pEntity->m_pRwObject
+                || !(pEntity->m_nFlags & 0x80) && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex)
+                || !pEntity->IsCurrentAreaOrBarberShopInterior() && (pEntity->m_nType & 7) == 2)
             {
-            LABEL_41:
-                CStreaming::RemoveModel(modelId);
-                CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
-                RwStreamClose(pRwStream1, data);
                 return 0;
             }
+            if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
+                return 2;
+            entityFlags = pEntity->m_nFlags;
+            if (entityFlags & 0x40)
+            {
+                pEntity->m_nFlags = entityFlags & 0xFFFF7FFF;
+                entityMatrix = pEntity->m_matrix;
+                if (entityMatrix)
+                    vecPosition = &entityMatrix->pos;
+                else
+                    vecPosition = &pEntity->m_placement.m_vPosn;
+                entityPosAndVectorPos_sub_result = VectorSub(&out, vecPosition, &CRenderer::ms_vecCameraPosition);
+                magnitudeOfPositionAndCameraPos0 = entityPosAndVectorPos_sub_result->Magnitude();
+                CRenderer::AddEntityToRenderList(pEntity, magnitudeOfPositionAndCameraPos0);
+                return 0;
+            }
+            return 1;
+        }
+        goto LABEL_49;
+    }
+    if (pBaseModelInfo->GetModelType() == 3)
+    {
+        pModelTimeInfo = pBaseModelInfo->GetTimeInfo();
+        wOtherTimeModel = pModelTimeInfo->m_wOtherTimeModel;          // m_wOtherTimeModel
+        if (CClock::GetIsTimeInRange(pModelTimeInfo->m_nTimeOn, pModelTimeInfo->m_nTimeOff))// m_nTimeOn, m_nTimeOff
+        {
+            if (wOtherTimeModel != -1 && CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
+                pBaseModelInfo->m_nAlpha = -1;
         }
         else
         {
-            if ((CTxdStore::ms_pTxdPool->m_byteMap[modelId - 20000].IntValue() & 0x80u) == 0)
-                pTxdDef0 = &CTxdStore::ms_pTxdPool->m_pObjects[modelId - 20000]; //m_pObjects + 12 * (modelId - 20000);
-            else
-                pTxdDef0 = 0;
-            txdIndex = pTxdDef0->m_wParentIndex;              
-            if (txdIndex != -1 && !CTxdStore::GetTxd(txdIndex))
-                goto LABEL_38;
-            if (!(CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0xE)
-                && !CStreaming::AreTexturesUsedByRequestedModels(modelId - 20000))
+            if (wOtherTimeModel == -1 || CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
             {
-                CStreaming::RemoveModel(modelId);
-                RwStreamClose(pRwStream1, data);
+                pEntity->DeleteRwObject();
                 return 0;
             }
-            txdIndex1 = modelId - 20000;
-            if (CStreaming::ms_bLoadingBigModel)
+            bDoSomething = 0;
+        }
+    LABEL_49:
+        entityInterior = pEntity->m_nAreaCode;
+        if (entityInterior == CGame::currArea || entityInterior == 13)
+        {
+            pEntityLod = pEntity->m_pLod;
+            if (pEntityLod)
             {
-                bTxdLoaded = CTxdStore::StartLoadTxd(txdIndex1, pRwStream1);
-                if (!bTxdLoaded)
-                {
-                LABEL_38:
-                    CStreaming::RemoveModel(modelId);
-                    CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
-                    RwStreamClose(pRwStream1, data);
-                    return 0;
-                }
-                CStreaming::ms_aInfoForModel[modelId].m_nLoadState = 4;
+                entityMatrix2 = pEntityLod->m_matrix;
+                if (entityMatrix2)
+                    vecPosition0 = &entityMatrix2->pos.x;
+                else
+                    vecPosition0 = &pEntityLod->m_placement.m_vPosn;
             }
             else
             {
-                bTxdLoaded = CTxdStore::LoadTxd(txdIndex1, pRwStream1);
+                entityMatrix3 = pEntity->m_matrix;
+                if (entityMatrix3)
+                    vecPosition0 = &entityMatrix3->pos.x;
+                else
+                    vecPosition0 = &pEntity->m_placement.m_vPosn.x;
             }
-            if (!bTxdLoaded)
-                goto LABEL_38;
+            posX = *vecPosition0;
+            posY = vecPosition0[1];
+            posZ = vecPosition0[2];
+            out.x = posX;
+            out.y = posY;
+            out.z = posZ;
+            distanceBetweenCameraAndEntity = sqrt(
+                (posZ - CRenderer::ms_vecCameraPosition.z)
+                * (posZ - CRenderer::ms_vecCameraPosition.z)
+                + (posY - CRenderer::ms_vecCameraPosition.y)
+                * (posY - CRenderer::ms_vecCameraPosition.y)
+                + (posX - CRenderer::ms_vecCameraPosition.x)
+                * (posX - CRenderer::ms_vecCameraPosition.x));
+            *outDistance = distanceBetweenCameraAndEntity;
+            if (distanceBetweenCameraAndEntity > 300.0)
+            {
+                lodMultiplierAndDrawDistance = TheCamera.m_fLODDistMultiplier * pBaseModelInfo->m_fDrawDistance;
+                if (lodMultiplierAndDrawDistance > 300.0
+                    && lodMultiplierAndDrawDistance + 20.0 > distanceBetweenCameraAndEntity)
+                {
+                    *outDistance = lodMultiplierAndDrawDistance - 300.0 + distanceBetweenCameraAndEntity;
+                }
+            }
+            return CRenderer::SetupMapEntityVisibility(pEntity0, pBaseModelInfo, *outDistance, bDoSomething);
         }
-        pBaseModelInfo0 = (CVehicleModelInfo *)pBuffer;
-        goto LABEL_56;
-    }
-    pBaseModelInfo0 = CModelInfo::ms_modelInfoPtrs[modelId];
-    animFileIndex = pBaseModelInfo0->GetAnimFileIndex();
-    wTxdIndex = pBaseModelInfo0->m_nTxdIndex;
-
-    if ((CTxdStore::ms_pTxdPool->m_byteMap[wTxdIndex].IntValue() & 0x80u) == 0)
-        pTxdDef1 = &CTxdStore::ms_pTxdPool->m_pObjects[wTxdIndex] ;//m_pObjects + 12 * wTxdIndex;
-    else
-        pTxdDef1 = 0;
-
-    if (!pTxdDef1->m_pRwDictionary || animFileIndex != -1 && !CAnimManager::ms_aAnimBlocks[animFileIndex].bLoaded)
-        goto LABEL_41;
-
-    CTxdStore::AddRef(wTxdIndex);
-    if (animFileIndex != -1)
-        CAnimManager::AddAnimBlockRef(animFileIndex);
-    CTxdStore::SetCurrentTxd(pBaseModelInfo0->m_nTxdIndex);
-    if (pBaseModelInfo0->GetRwModelType() == 1)
-    {
-        pRtDictionary = 0;
-        RwStreamReadChunkHeaderInfo(pRwStream1, &chunkHeaderInfo);
-        if (chunkHeaderInfo.type == 43)
-        {
-            pRtDictionary = RtDictSchemaStreamReadDict(&RpUVAnimDictSchema, pRwStream1);
-            RtDictSchemaSetCurrentDict(&RpUVAnimDictSchema, pRtDictionary);
-        }
-        RwStreamClose(pRwStream1, data);
-        pRwStream2 = _rwStreamInitialize(&gRwStream, 0, rwSTREAMMEMORY, rwSTREAMREAD, data);
-        CFileLoader::LoadAtomicFile(pRwStream2, modelId);
-        if (pRtDictionary)
-            RtDictDestroy(pRtDictionary);
-    }
-    else
-    {
-        pBaseModelInfo0->GetModelType();
-        bLoaded = CFileLoader::LoadClumpFile(pRwStream1, modelId);
-    }
-    if (CStreaming::ms_aInfoForModel[modelId].m_nLoadState != 4)
-    {
-        CTxdStore::RemoveRefWithoutDelete(pBaseModelInfo0->m_nTxdIndex);
-        if (animFileIndex != -1)
-            CAnimManager::RemoveAnimBlockRefWithoutDelete(animFileIndex);
-        if (!bLoaded)
-            goto LABEL_23;
-        if (pBaseModelInfo0->GetModelType() == 6)
-            bLoaded = CStreaming::AddToLoadedVehiclesList(modelId);
-    }
-    if (!bLoaded)
-    {
-    LABEL_23:
-        CStreaming::RemoveModel(modelId);
-        CStreaming::RequestModel(modelId, CStreaming::ms_aInfoForModel[modelId].m_nFlags);
-        RwStreamClose(pRwStream1, data);
         return 0;
     }
-LABEL_56:
-    RwStreamClose(pRwStream1, data);
-    if (modelId >= 20000)
+    entityFlags0 = pEntity->m_nFlags;
+    if (!(entityFlags0 & 0x80000))
+        goto LABEL_49;
+    if (!pEntity->m_pRwObject
+        || (entityFlags0 & 0x80u) == 0 && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex))
     {
-        if (modelId >= 25000 && (modelId < 25575 || modelId >= 25755) && modelId < 26230
-            || CStreaming::ms_aInfoForModel[modelId].m_nFlags & 6)
-        {
-            goto LABEL_70;
-        }
-        pStreamingInfo1 = CStreaming::ms_startLoadedList;
-        pStreamingInfo = &CStreaming::ms_aInfoForModel[modelId];
+        return 0;
     }
+    if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
+        return 2;
+    entityFlags1 = pEntity->m_nFlags;
+    if (!(entityFlags1 & 0x40))
+        return 1;
+    entityMatrix4 = pEntity->m_matrix;
+    if (entityMatrix4)
+        vecPosition1 = &entityMatrix4->pos;
     else
-    {
-        if (pBaseModelInfo0->GetModelType() == 6
-            || pBaseModelInfo0->GetModelType() == 7)
-        {
-            goto LABEL_70;
-        }
-        pBaseModelInfo = pBaseModelInfo0->AsAtomicModelInfoPtr();
-        if (pBaseModelInfo)
-            pBaseModelInfo->m_nAlpha = -((CStreaming::ms_aInfoForModel[modelId].m_nFlags & 0x24) != 0);
-        pStreamingInfo = &CStreaming::ms_aInfoForModel[modelId];
-        if (CStreaming::ms_aInfoForModel[modelId].m_nFlags & 6)
-            goto LABEL_70;
-        pStreamingInfo1 = CStreaming::ms_startLoadedList;
-    }
-    pStreamingInfo->AddToList( pStreamingInfo1);
-LABEL_70:
-    if (CStreaming::ms_aInfoForModel[modelId].m_nLoadState != 4)
-    {
-        streamingMemoryUsed = CStreaming::ms_memoryUsed;
-        CStreaming::ms_aInfoForModel[modelId].m_nLoadState = 1;
-        CStreaming::ms_memoryUsed = (CStreaming::ms_aInfoForModel[modelId].m_nCdSize << 11) + streamingMemoryUsed;
-    }
-    return 1;//*/
+        vecPosition1 = &pEntity->m_placement.m_vPosn;
+    entityPosAndVectorPos_sub_result0 = VectorSub(&out, vecPosition1, &CRenderer::ms_vecCameraPosition);
+    magnitudeOfPositionAndCameraPos = entityPosAndVectorPos_sub_result0->Magnitude();
+    CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, magnitudeOfPositionAndCameraPos);
+    pEntity->m_nFlags &= 0xFFFF7FFF;
+    return 0;
 }

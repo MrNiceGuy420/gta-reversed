@@ -3,9 +3,9 @@
 
 #pragma comment(lib, "detours.lib")
 
-typedef void(__cdecl *hCRenderer_AddEntityToRenderList)( CEntity *pEntity, float fDistance );
-auto OLD_CRenderer_AddEntityToRenderList = (hCRenderer_AddEntityToRenderList)0x05534B0;
-void __cdecl CRenderer_AddEntityToRenderList(CEntity *pEntity, float fDistance);
+typedef signed int(__cdecl *hCRenderer_SetupEntityVisibility)(CEntity *pEntity, float *outDistance);
+auto OLD_CRenderer_SetupEntityVisibility = (hCRenderer_SetupEntityVisibility)0x554230;
+signed int __cdecl CRenderer_SetupEntityVisibility(CEntity *pEntity, float *outDistance);
 
 void InjectHooksMain(void)
 {
@@ -14,26 +14,28 @@ void InjectHooksMain(void)
     CStreaming::InjectHooks();
     CRenderer::InjectHooks();
 
-    /*DetourRestoreAfterWith();
+    DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CRenderer_AddEntityToRenderList, CRenderer_AddEntityToRenderList);
+    DetourAttach(&(PVOID&)OLD_CRenderer_SetupEntityVisibility, CRenderer_SetupEntityVisibility);
 
-    DetourTransactionCommit(); */
+    DetourTransactionCommit(); 
     
 }
 
 
-signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *outDistance)
+signed int __cdecl CRenderer_SetupEntityVisibility(CEntity *pEntity, float *outDistance)
 {
+    std::printf("CRenderer_SetupEntityVisibility called! |  distance fade: %d\n", pEntity->m_bDistanceFade);
+    //return OLD_CRenderer_SetupEntityVisibility(pEntity, outDistance);
+
     CEntity *pEntity0; // esi
     int modelIndex; // eax
     CBaseModelInfo *pBaseModelInfo; // edi
     CBaseModelInfo * pBaseAtomicModelInfo; // eax
     unsigned int v6; // ecx
-    CBaseModelInfo_vtbl *pBaseModelInfo; // edx
     DWORD dwDirectionWasLooking; // edi
     __int16 modelIndex0; // ax
     int someFlagsMaybe; // ecx
@@ -47,7 +49,7 @@ signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *out
     unsigned __int8 entityInterior; // al
     CEntity *pEntityLod; // eax
     CMatrixLink *entityMatrix2; // ecx
-    float *vecPosition0; // eax
+    CVector *vecPosition0; // eax
     unsigned int entityFlags0; // eax
     unsigned int entityFlags1; // eax
     CMatrixLink *entityMatrix4; // eax
@@ -91,7 +93,7 @@ signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *out
                         
                         dwDirectionWasLooking = TheCamera.m_aCams[TheCamera.m_nActiveCam].m_nDirectionWasLooking;
                         CAutomobile * pVehicle = FindPlayerVehicle(-1, 0);
-                        if (pVehicle->m_nVehicleClass != 9
+                        if (pVehicle->m_nVehicleClass != CLASS_LEISUREBOAT
                             || !(pVehicle->m_doors[3].m_nDoorFlags & 0x80))
                         {
                             if (dwDirectionWasLooking == 3)
@@ -103,7 +105,7 @@ signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *out
                                 goto LABEL_81;
                             if (pVehicle->m_pHandlingData->m_nModelFlags & 0x4000)
                                 return 2;
-                            if (pEntity[25].object.m_pRwObject != 5
+                            if (pVehicle->m_nVehicleClass != CLASS_BIG
                                 || modelIndex0 == 453
                                 || modelIndex0 == 454
                                 || modelIndex0 == 430
@@ -170,7 +172,7 @@ signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *out
             {
                 entityMatrix2 = pEntityLod->m_matrix;
                 if (entityMatrix2)
-                    vecPosition0 = &entityMatrix2->pos.x;
+                    vecPosition0 = &entityMatrix2->pos;
                 else
                     vecPosition0 = &pEntityLod->m_placement.m_vPosn;
             }
@@ -178,13 +180,13 @@ signed int __cdecl CRenderer::SetupEntityVisibility(CEntity *pEntity, float *out
             {
                 entityMatrix3 = pEntity->m_matrix;
                 if (entityMatrix3)
-                    vecPosition0 = &entityMatrix3->pos.x;
+                    vecPosition0 = &entityMatrix3->pos;
                 else
-                    vecPosition0 = &pEntity->m_placement.m_vPosn.x;
+                    vecPosition0 = &pEntity->m_placement.m_vPosn;
             }
-            posX = *vecPosition0;
-            posY = vecPosition0[1];
-            posZ = vecPosition0[2];
+            posX = vecPosition0->x; 
+            posY = vecPosition0->y; 
+            posZ = vecPosition0->z; 
             out.x = posX;
             out.y = posY;
             out.z = posZ;

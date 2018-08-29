@@ -48,7 +48,10 @@ public:
     short          m_n2dEffectIndex;
     short          m_nObjectInfoIndex;
 	union{
-		unsigned short m_nFlags;
+        struct {
+            unsigned char m_nFlags;
+            unsigned char m_nFlagsLowerByte;
+        };
 		struct{
 			/* https://code.google.com/p/mtasa-blue/source/browse/tags/1.3.4/MTA10/game_sa/CModelInfoSA.h */
 			unsigned char bHasBeenPreRendered : 1; // we use this because we need to apply changes only once
@@ -76,9 +79,9 @@ public:
 			
 		};
 	};
-	CColModel        *m_pColModel;
-	float             m_fDrawDistance;
-	struct RwObject  *m_pRwObject;
+	CColModel        *m_pColModel; // 20
+	float             m_fDrawDistance; // 24
+	struct RwObject  *m_pRwObject; // 28
 
 	// vtable
 

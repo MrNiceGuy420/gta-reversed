@@ -77,9 +77,9 @@ void CRenderer::RemoveVehiclePedLights(CPhysical* entity) {
 void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
 {
     CBaseModelInfo* pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pEntity->m_nModelIndex];
-    pBaseModelInfo->m_nFlags &= 0xFEu; // set first 7 bits to true, and 8th bit (bIsLod) to false
+    pBaseModelInfo->m_nFlags &= 0xFE; // set first 7 bits to true, and 8th bit (bIsLod) to false
 
-    if (!pEntity->m_bDistanceFade)
+    if (pEntity->m_bDistanceFade >= 0)
     {
         if (pEntity->m_bDrawLast && CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
         {
@@ -87,20 +87,23 @@ void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
             return;
         }
     }
-    else if (CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
+    else
     {
-        return;
+        if (CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
+        {
+            return;
+        }
     }
 
-    if (!pEntity->m_nNumLodChildren || pEntity->m_bUnderwater)
+    if (pEntity->m_nNumLodChildren && !pEntity->m_bUnderwater)
     {
-        ms_aVisibleEntityPtrs[ms_nNoOfVisibleEntities] = pEntity;
-        ms_nNoOfVisibleEntities++;
+        CRenderer::ms_aVisibleLodPtrs[CRenderer::ms_nNoOfVisibleLods] = pEntity;
+        CRenderer::ms_nNoOfVisibleLods++;
     }
     else
     {
-        ms_aVisibleLodPtrs[ms_nNoOfVisibleLods] = pEntity;
-        ms_nNoOfVisibleLods++;
+        CRenderer::ms_aVisibleEntityPtrs[CRenderer::ms_nNoOfVisibleEntities] = pEntity;
+        CRenderer::ms_nNoOfVisibleEntities++;
     }
 }
 

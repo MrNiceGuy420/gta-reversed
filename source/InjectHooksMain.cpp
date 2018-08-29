@@ -3,28 +3,24 @@
 
 #pragma comment(lib, "detours.lib")
 
-typedef char(__cdecl *hCStreaming__FinishLoadingLargeFile)
-(
-    unsigned char * pFileBuffer, int modelId
-);
-auto OLD_CStreaming__FinishLoadingLargeFile = (hCStreaming__FinishLoadingLargeFile)0x408CB0;
+typedef signed int(__cdecl *hCRenderer_SetupEntityVisibility)(CEntity *pEntity, float *outDistance);
+auto OLD_CRenderer_SetupEntityVisibility = (hCRenderer_SetupEntityVisibility)0x554230;
+signed int __cdecl CRenderer_SetupEntityVisibility(CEntity *pEntity, float *outDistance);
 
-char __cdecl CStreaming__FinishLoadingLargeFile(unsigned char * pFileBuffer, int modelId);
 
 void InjectHooksMain(void)
 {
-   CAnimManager::InjectHooks();
-   CTaskManager::InjectHooks();
-   CStreaming::InjectHooks();
+    //CAnimManager::InjectHooks();
+   // CTaskManager::InjectHooks();
+    //std::printf("okay, only CAnimManager and CTaskManager hooks\n ");
+    //CStreaming::InjectHooks();
+    CRenderer::InjectHooks();
 
-   /* DetourRestoreAfterWith();
+    /*DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CStreaming__FinishLoadingLargeFile, CStreaming__FinishLoadingLargeFile);
-
-    DetourTransactionCommit(); */
-    
+    DetourAttach(&(PVOID&)OLD_CRenderer_SetupEntityVisibility, CRenderer_SetupEntityVisibility);
+    DetourTransactionCommit();*/  
 }
-
